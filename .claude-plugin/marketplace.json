@@ -22,8 +22,15 @@
         "github",
         "google",
         "aws",
+        "datadog",
+        "jira",
+        "confluence",
+        "vertex-ai",
+        "teams",
+        "outlook",
         "oauth",
-        "authentication"
+        "authentication",
+        "agent"
       ]
     }
   ]

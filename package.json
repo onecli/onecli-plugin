@@ -1,6 +1,13 @@
 {
   "name": "onecli-plugin",
   "version": "0.1.0",
+  "description": "Connect AI agents to external APIs with zero credential management. OneCLI gateway injects stored credentials into outbound requests automatically.",
+  "author": {
+    "name": "OneCLI",
+    "url": "https://github.com/onecli"
+  },
+  "repository": "https://github.com/onecli/onecli-plugin",
+  "license": "Apache-2.0",
   "private": true,
   "scripts": {
     "build": "tsup --config hooks/tsup.config.ts",

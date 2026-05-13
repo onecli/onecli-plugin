@@ -17,8 +17,12 @@
     "github",
     "google",
     "aws",
-    "stripe",
     "datadog",
+    "jira",
+    "confluence",
+    "vertex-ai",
+    "teams",
+    "outlook",
     "oauth",
     "authentication",
     "agent"
