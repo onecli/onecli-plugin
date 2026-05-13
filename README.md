@@ -8,7 +8,7 @@ Once installed, every Claude Code session automatically routes all HTTPS traffic
 
 All HTTP clients (`curl`, `gh`, `gcloud`, `aws`, language libraries) honor the proxy automatically. Policy rules (block, rate limit, manual approval) are enforced at the gateway level.
 
-**Supported services**: GitHub, Gmail, Google Calendar, Google Drive, Google Docs, Google Sheets, Jira, Confluence, AWS, Stripe, Datadog, Notion, Cloudflare, Todoist, Outlook, Microsoft Word, YouTube, and more.
+**Supported services**: GitHub, Gmail, Google Calendar, Google Drive, Google Docs, Google Sheets, Jira, Confluence, AWS, Datadog, Notion, Cloudflare, Todoist, Outlook, Microsoft Word, YouTube, and more.
 
 ## Installation
 
