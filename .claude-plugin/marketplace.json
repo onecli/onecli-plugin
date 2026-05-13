@@ -1,0 +1,30 @@
+{
+  "name": "onecli",
+  "owner": {
+    "name": "OneCLI"
+  },
+  "plugins": [
+    {
+      "name": "onecli-plugin",
+      "source": "./",
+      "description": "Connect AI agents to external APIs with zero credential management. OneCLI gateway injects stored credentials into outbound requests automatically.",
+      "author": {
+        "name": "OneCLI"
+      },
+      "repository": "https://github.com/onecli/onecli-plugin",
+      "license": "Apache-2.0",
+      "keywords": [
+        "onecli",
+        "gateway",
+        "proxy",
+        "credentials",
+        "api",
+        "github",
+        "google",
+        "aws",
+        "oauth",
+        "authentication"
+      ]
+    }
+  ]
+}
