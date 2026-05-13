@@ -48,4 +48,4 @@ If the response is `200`, tell the user:
 > OneCLI is configured! **Start a new session** to activate the gateway.
 > The plugin will automatically configure the proxy on every future session.
 
-If the response is `401`, the key is invalid — ask the user to double-check it.
+If the response is `401`, the key is invalid. Ask the user to double-check it.

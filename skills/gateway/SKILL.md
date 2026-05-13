@@ -73,7 +73,7 @@ to set any auth headers.
 
 Some MCP servers need local credential files to start. Stubs for connected
 apps are pre-written automatically. Files containing `"onecli-managed"`
-values are managed by OneCLI — do NOT modify or delete them.
+values are managed by OneCLI. Do NOT modify or delete them.
 
 If an MCP server won't start due to missing credentials, create stubs
 **before** starting it. Use `"onecli-managed"` as the placeholder for all
@@ -83,7 +83,7 @@ secret values, with file permissions `0600`.
 
 If you get a 401, 403, or a gateway error (e.g., `app_not_connected`):
 
-**Step 1 — Show the user a connect link.** Use the `connect_url` from the
+**Step 1: Show the user a connect link.** Use the `connect_url` from the
 error response:
 
 > To connect [service], open this link:
@@ -92,7 +92,7 @@ error response:
 If there is no `connect_url` in the error, tell the user to open the
 OneCLI dashboard and connect the service there.
 
-**Step 2 — Retry after the user connects.** Let the user know you will
+**Step 2: Retry after the user connects.** Let the user know you will
 retry once they have connected. When they confirm, retry the original
 request. If the retry still fails, ask if they need help with the setup.
 

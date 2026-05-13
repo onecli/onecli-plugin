@@ -55,8 +55,8 @@ When a user has multiple accounts for the same service (e.g., personal + work Gi
 
 ## Design Recommendations
 
-1. **Start simple** — get one API call working before chaining services
-2. **Test each leg** — verify each service is connected before building the full workflow
-3. **Use jq for JSON** — pipe responses through jq for reliable parsing
-4. **Prefer REST** — use direct HTTP calls over service-specific CLIs (the gateway handles auth)
-5. **Idempotent operations** — design workflows that can be safely re-run
+1. **Start simple**: get one API call working before chaining services
+2. **Test each leg**: verify each service is connected before building the full workflow
+3. **Use jq for JSON**: pipe responses through jq for reliable parsing
+4. **Prefer REST**: use direct HTTP calls over service-specific CLIs (the gateway handles auth)
+5. **Idempotent operations**: design workflows that can be safely re-run

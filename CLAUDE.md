@@ -1,6 +1,6 @@
 # OneCLI Plugin
 
-Claude Code plugin for the OneCLI gateway — transparent HTTPS proxy that injects stored credentials into outbound API calls.
+Claude Code plugin for the OneCLI gateway, a transparent HTTPS proxy that injects stored credentials into outbound API calls.
 
 ## Development
 
@@ -15,11 +15,11 @@ npm run typecheck  # Type-check hooks
 ```
 .claude-plugin/     Plugin manifest and marketplace listing
 skills/             Skill definitions (SKILL.md files)
-  gateway/          Core gateway skill — how to route API calls
+  gateway/          Core gateway skill: how to route API calls
   providers/        Supported providers reference
 commands/           Slash commands (markdown)
-  setup.md          /onecli-setup — first-time auth config
-  status.md         /onecli-status — gateway and connection health
+  setup.md          /onecli-setup, first-time auth config
+  status.md         /onecli-status, gateway and connection health
 agents/             Sub-agent definitions
   integration-architect.md
 hooks/              Session lifecycle hooks
