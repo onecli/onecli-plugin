@@ -8,6 +8,7 @@ import {
 import { homedir } from "os";
 import { join } from "path";
 import { execSync } from "child_process";
+import { createConnection } from "net";
 var ONECLI_DIR = join(homedir(), ".onecli");
 var CA_BUNDLE_PATH = join(ONECLI_DIR, "ca-bundle.pem");
 var CREDENTIALS_PATH = join(ONECLI_DIR, "credentials", "api-key");
@@ -111,6 +112,31 @@ async function fetchContainerConfig(apiHost, apiKey) {
     return null;
   }
 }
+function parseProxyUrl(proxyUrl) {
+  try {
+    const url = new URL(proxyUrl);
+    const port = url.port ? parseInt(url.port, 10) : url.protocol === "https:" ? 443 : 80;
+    return { host: url.hostname, port };
+  } catch {
+    return null;
+  }
+}
+function probeProxy(host, port, timeoutMs = 3e3) {
+  return new Promise((resolve) => {
+    const socket = createConnection({ host, port, timeout: timeoutMs }, () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.on("error", () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.on("timeout", () => {
+      socket.destroy();
+      resolve(false);
+    });
+  });
+}
 function writeCABundle(gatewayCert) {
   let systemCAs = "";
   for (const caPath of SYSTEM_CA_PATHS) {
@@ -168,6 +194,32 @@ async function main() {
   const apiHost = resolveApiHost();
   const config = await fetchContainerConfig(apiHost, apiKey);
   if (!config) return;
+  const proxyUrl = config.env.HTTPS_PROXY || config.env.https_proxy;
+  if (proxyUrl) {
+    const parsed = parseProxyUrl(proxyUrl);
+    if (parsed) {
+      const reachable = await probeProxy(parsed.host, parsed.port);
+      if (!reachable) {
+        process.stderr.write(
+          `onecli: proxy unreachable at ${parsed.host}:${parsed.port}
+`
+        );
+        process.stdout.write(
+          [
+            "# OneCLI Gateway \u2014 Proxy Unreachable",
+            "",
+            `The gateway returned a proxy address (\`${parsed.host}:${parsed.port}\`) that is not reachable from this machine.`,
+            "This usually means your API key is configured for a different environment (e.g., a local dev gateway that is not running).",
+            "",
+            "**To fix:** Run `/onecli-setup` to reconfigure with the correct API key for your environment,",
+            "or start the local gateway if you intend to use it.",
+            ""
+          ].join("\n")
+        );
+        return;
+      }
+    }
+  }
   if (config.caCertificate) {
     writeCABundle(config.caCertificate);
   }
