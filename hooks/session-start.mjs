@@ -10,6 +10,7 @@ import { join } from "path";
 import { execSync } from "child_process";
 import { createConnection } from "net";
 var ONECLI_DIR = join(homedir(), ".onecli");
+var ENV_SH_PATH = join(ONECLI_DIR, "env.sh");
 var CA_BUNDLE_PATH = join(ONECLI_DIR, "ca-bundle.pem");
 var CREDENTIALS_PATH = join(ONECLI_DIR, "credentials", "api-key");
 var CONFIG_PATH = join(ONECLI_DIR, "config.json");
@@ -153,7 +154,7 @@ ${gatewayCert}` : gatewayCert;
   mkdirSync(ONECLI_DIR, { recursive: true, mode: 448 });
   writeFileSync(CA_BUNDLE_PATH, bundle, { mode: 384 });
 }
-function injectEnvVars(envFile, config) {
+function buildEnvLines(config) {
   const lines = [];
   for (const [key, value] of Object.entries(config.env)) {
     if (key === "NODE_EXTRA_CA_CERTS" || key === "SSL_CERT_FILE" || key === "REQUESTS_CA_BUNDLE" || key === "CURL_CA_BUNDLE" || key === "GIT_SSL_CAINFO" || key === "DENO_CERT") {
@@ -169,7 +170,30 @@ function injectEnvVars(envFile, config) {
   lines.push("export GIT_TERMINAL_PROMPT=0");
   lines.push("export GIT_HTTP_PROXY_AUTHMETHOD=basic");
   lines.push("export NODE_USE_ENV_PROXY=1");
-  appendFileSync(envFile, lines.join("\n") + "\n");
+  return lines;
+}
+function injectEnvVars(envFile, config) {
+  const lines = buildEnvLines(config);
+  const content = lines.join("\n") + "\n";
+  mkdirSync(ONECLI_DIR, { recursive: true, mode: 448 });
+  writeFileSync(ENV_SH_PATH, content, { mode: 384 });
+  if (envFile) {
+    appendFileSync(envFile, content);
+  }
+  ensureBashEnv();
+}
+function ensureBashEnv() {
+  const settingsPath = join(homedir(), ".claude", "settings.json");
+  let settings = {};
+  try {
+    settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+  } catch {
+  }
+  const env = settings.env ?? {};
+  if (env.BASH_ENV === ENV_SH_PATH) return;
+  env.BASH_ENV = ENV_SH_PATH;
+  settings.env = env;
+  writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
 }
 async function main() {
   if (isOnecliProxy(process.env.HTTPS_PROXY)) {
@@ -224,19 +248,18 @@ async function main() {
     writeCABundle(config.caCertificate);
   }
   const envFile = process.env.CLAUDE_ENV_FILE;
-  if (envFile) {
-    injectEnvVars(envFile, config);
-  }
+  injectEnvVars(envFile, config);
   process.stderr.write("onecli: gateway connected.\n");
   process.stdout.write(
     [
       "# OneCLI Gateway Active",
       "",
-      "HTTPS_PROXY is configured. All outbound HTTP requests (curl, CLI tools, language HTTP clients)",
-      "are transparently proxied through the OneCLI gateway, which injects stored credentials",
-      "(OAuth tokens, API keys) at the proxy boundary.",
+      "IMPORTANT: You MUST use curl for ALL external API requests (Gmail, GitHub, Calendar, Stripe, etc.).",
+      "NEVER use MCP tools (Gmail MCP, Google Calendar MCP, Google Drive MCP, etc.) for these services.",
+      "The OneCLI gateway handles authentication automatically through HTTPS_PROXY \u2014 just use curl.",
       "",
-      "- The gateway intercepts all HTTPS traffic \u2014 curl, gh, gcloud, aws CLI, and any HTTP client all route through it",
+      "## Rules",
+      "- ALWAYS use curl for external API requests \u2014 NEVER use MCP tools for Gmail, Calendar, Drive, GitHub, etc.",
       "- Credentials are injected automatically \u2014 do not set Authorization headers manually",
       "- If a request returns 401/403 with a `connect_url` in the JSON response, show that URL to the user to connect the service, then retry",
       "- If a request returns 401/403 WITHOUT a `connect_url`, guide the user to connect the service via /onecli-connect or at https://app.onecli.sh/projects",
