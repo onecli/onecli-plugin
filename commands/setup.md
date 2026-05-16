@@ -37,10 +37,10 @@ Wait for the user to provide the key.
 
 ### 3. Store and Verify
 
-Store the key and verify it works in a single step:
+Store the key, set the production api-host, and verify it works:
 
 ```bash
-mkdir -p ~/.onecli/credentials && echo -n "USER_PROVIDED_KEY" > ~/.onecli/credentials/api-key && chmod 600 ~/.onecli/credentials/api-key && curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer USER_PROVIDED_KEY" https://app.onecli.sh/api/container-config
+mkdir -p ~/.onecli/credentials && echo -n "USER_PROVIDED_KEY" > ~/.onecli/credentials/api-key && chmod 600 ~/.onecli/credentials/api-key && echo '{"api-host":"https://app.onecli.sh"}' > ~/.onecli/config.json && curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer USER_PROVIDED_KEY" https://app.onecli.sh/api/container-config
 ```
 
 If the response is `200`, tell the user:
