@@ -2,41 +2,12 @@
 name: onecli-gateway
 description: >-
   OneCLI Gateway: transparent HTTPS proxy that injects stored credentials
-  into outbound calls. You MUST invoke this skill BEFORE trying any other
-  approach (installing CLIs, searching for MCP servers, or using browser
-  automation) when the user wants to access ANY external service or API.
-  Make HTTP requests directly; the gateway injects credentials automatically.
+  into outbound calls. Only use this skill when prompted by the gateway
+  detection hook or when the user explicitly invokes /onecli-gateway.
+  Do NOT auto-load this skill based on user intent alone — the hook
+  handles detection.
 metadata:
   priority: 8
-  bashPatterns:
-    - "curl\\s"
-    - "wget\\s"
-    - "fetch\\("
-    - "requests\\."
-    - "http\\.Get"
-  importPatterns:
-    - "axios"
-    - "node-fetch"
-    - "got"
-    - "ky"
-    - "undici"
-  promptSignals:
-    phrases:
-      - "API request"
-      - "call the API"
-      - "GitHub API"
-      - "send email"
-      - "create issue"
-      - "check PRs"
-      - "read my emails"
-      - "check calendar"
-      - "list repos"
-      - "Stripe payments"
-    anyOf:
-      - "API"
-      - "endpoint"
-      - "webhook"
-    minScore: 6
 ---
 
 # OneCLI Gateway
