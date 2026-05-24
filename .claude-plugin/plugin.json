@@ -7,7 +7,9 @@
     "url": "https://github.com/onecli"
   },
   "repository": "https://github.com/onecli/onecli-plugin",
+  "homepage": "https://onecli.sh",
   "license": "Apache-2.0",
+  "category": "development",
   "keywords": [
     "onecli",
     "gateway",
