@@ -1,5 +1,6 @@
 {
   "name": "onecli",
+  "description": "Connect AI agents to external APIs with zero credential management.",
   "owner": {
     "name": "OneCLI"
   },
