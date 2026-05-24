@@ -5,7 +5,7 @@
   },
   "plugins": [
     {
-      "name": "onecli-plugin",
+      "name": "onecli",
       "description": "Connect AI agents to external APIs with zero credential management. OneCLI gateway injects stored credentials into outbound requests automatically.",
       "author": {
         "name": "OneCLI"
