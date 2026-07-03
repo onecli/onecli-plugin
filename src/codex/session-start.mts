@@ -49,43 +49,26 @@ function writeLoaderFile(sessionId: string): string {
   return paths.envPath;
 }
 
-function printSetupRequired(envPath: string): void {
+function printSetupRequired(): void {
   process.stdout.write(
     [
-      "# OneCLI Gateway - Setup Required",
-      "",
-      `Gateway loader file: ${envPath}`,
-      "",
-      "The OneCLI Codex plugin is installed but no API key was found.",
-      "Use the onecli-setup skill to configure `~/.onecli/credentials/api-key`.",
-      "After setup, start a new Codex thread or rerun this hook.",
+      "OneCLI Gateway: installed but not configured — external API calls will fail.",
+      "Run the onecli-setup skill to configure the API key, then start a new thread.",
       "",
     ].join("\n")
   );
 }
 
-function printActiveMessage(envPath: string): void {
+function printActiveMessage(): void {
+  // Codex renders this context verbatim in the thread, so keep it terse.
+  // Detailed behavior (manual sourcing, error shapes) lives in the
+  // onecli-gateway skill. Do NOT suggest sourcing env.sh here: agents that
+  // prefix commands themselves bypass the PreToolUse auto-allow rewrite and
+  // trigger avoidable approval prompts.
   process.stdout.write(
     [
-      "# OneCLI Gateway Active",
-      "",
-      `Gateway loader file: ${envPath}`,
-      "",
-      "The loader file contains no live gateway credential. Sourcing it runs the OneCLI helper, fetches fresh gateway exports, and applies them to that shell command.",
-      "",
-      "The plugin also includes a conservative PreToolUse hook that auto-sources supported outbound Bash commands. If you need to source manually, use:",
-      "",
-      "```bash",
-      '. ~/.onecli/env.sh && curl -s "https://api.github.com/user"',
-      "```",
-      "",
-      "Rules:",
-      "- Prefer direct HTTP requests through curl/fetch for connected services.",
-      "- Do not add Authorization headers manually; the gateway injects credentials.",
-      "- If a response includes `connect_url`, show it to the user and retry after they connect.",
-      "- If a response includes `blocked_by_policy`, report the policy and do not circumvent it.",
-      "- If a response includes `retry_after_secs`, wait before retrying.",
-      "- Use the onecli-gateway skill for detailed gateway behavior.",
+      "OneCLI Gateway active. Call external APIs directly (plain `curl`/`gh`); requests are routed through the gateway and credentials are injected automatically — never add Authorization headers.",
+      "On errors: `connect_url` → show it to the user and retry after they connect; `blocked_by_policy` → report the rule, do not circumvent; `rate_limited` → wait `retry_after_secs`. Details: onecli-gateway skill.",
       "",
     ].join("\n")
   );
@@ -98,19 +81,19 @@ async function main(): Promise<void> {
 
   if (isOnecliProxy(process.env.HTTPS_PROXY)) {
     process.stderr.write("onecli: gateway already active.\n");
-    printActiveMessage(envPath);
+    printActiveMessage();
     return;
   }
 
   const apiKey = resolveApiKey();
   if (!apiKey) {
     process.stderr.write("onecli: no API key found.\n");
-    printSetupRequired(envPath);
+    printSetupRequired();
     return;
   }
 
-  process.stderr.write("onecli: gateway loader written.\n");
-  printActiveMessage(envPath);
+  process.stderr.write(`onecli: gateway loader written to ${envPath}.\n`);
+  printActiveMessage();
 }
 
 main().catch((err) => {
