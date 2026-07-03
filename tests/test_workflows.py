@@ -617,7 +617,17 @@ def assert_claude_session_flow(node: str) -> None:
             env=env,
             cwd=CLAUDE,
         )
-        check("OneCLI Gateway Active" in result.stdout, "claude session-start did not activate")
+        payload = json.loads(result.stdout)
+        check(
+            "gateway connected" in payload.get("systemMessage", ""),
+            "claude session-start must surface a user-visible systemMessage",
+        )
+        hook_output = payload["hookSpecificOutput"]
+        check(hook_output["hookEventName"] == "SessionStart", "wrong hookEventName")
+        check(
+            "OneCLI Gateway Active" in hook_output["additionalContext"],
+            "claude session-start did not inject gateway context",
+        )
         check(services["api"].requests, "claude session-start did not fetch gateway config")
 
         env_file = home / ".onecli" / "env.sh"

@@ -17,6 +17,49 @@ import {
 
 const paths = onecliPaths();
 
+const ACTIVE_CONTEXT = [
+  "# OneCLI Gateway Active",
+  "",
+  "IMPORTANT: You MUST use curl for ALL external API requests (Gmail, GitHub, Calendar, Stripe, etc.).",
+  "NEVER use MCP tools (Gmail MCP, Google Calendar MCP, Google Drive MCP, etc.) for these services.",
+  "The OneCLI gateway handles authentication automatically through HTTPS_PROXY — just use curl.",
+  "",
+  "## Rules",
+  "- ALWAYS use curl for external API requests — NEVER use MCP tools for Gmail, Calendar, Drive, GitHub, etc.",
+  "- Credentials are injected automatically — do not set Authorization headers manually",
+  "- If a request returns 401/403 with a `connect_url` in the JSON response, show that URL to the user to connect the service, then retry",
+  "- If a request returns 401/403 WITHOUT a `connect_url`, guide the user to connect the service via /onecli-connect or at https://app.onecli.sh/projects",
+  "- If the gateway returns `blocked_by_policy` (403), show the rule name — do not retry or circumvent",
+  "- If the gateway returns `rate_limited` (429), wait for `retry_after_secs` before retrying",
+  "- Never say 'I don't have access' without making the request first",
+  "",
+  "Available commands: /onecli-setup (configure API key), /onecli-status (check connections)",
+].join("\n");
+
+const SETUP_CONTEXT = [
+  "# OneCLI Gateway — Setup Required",
+  "",
+  "The OneCLI gateway plugin is installed but NOT configured — no API key, no proxy, no credentials.",
+  "DO NOT attempt any external API requests (curl, fetch, gh, etc.) — they will all fail without auth.",
+  "Instead, tell the user to run /onecli-setup to configure their API key. After setup, they start a new session and the gateway activates automatically.",
+].join("\n");
+
+// SessionStart structured output: `systemMessage` is shown to the user in the
+// UI (the wrapper-style one-liner); `additionalContext` goes to the model.
+function emit(systemMessage: string | null, additionalContext: string | null): void {
+  const out: Record<string, unknown> = {};
+  if (systemMessage) out.systemMessage = systemMessage;
+  if (additionalContext) {
+    out.hookSpecificOutput = {
+      hookEventName: "SessionStart",
+      additionalContext,
+    };
+  }
+  if (Object.keys(out).length > 0) {
+    process.stdout.write(JSON.stringify(out));
+  }
+}
+
 function injectEnvVars(envFile: string | undefined, config: ContainerConfig): void {
   const lines = buildEnvLines(config, { caBundlePath: paths.caBundlePath });
   const content = lines.join("\n") + "\n";
@@ -51,21 +94,18 @@ function ensureBashEnv(): void {
 async function main(): Promise<void> {
   if (isOnecliProxy(process.env.HTTPS_PROXY)) {
     process.stderr.write("onecli: gateway already active (via onecli run).\n");
+    // The wrapper already announced the connection; give the model the rules
+    // without repeating a user-facing message.
+    emit(null, ACTIVE_CONTEXT);
     return;
   }
 
   const apiKey = resolveApiKey(paths);
   if (!apiKey) {
     process.stderr.write("onecli: no API key found. Run /onecli-setup to configure.\n");
-    process.stdout.write(
-      [
-        "# OneCLI Gateway — Setup Required",
-        "",
-        "The OneCLI gateway plugin is installed but NOT configured — no API key, no proxy, no credentials.",
-        "DO NOT attempt any external API requests (curl, fetch, gh, etc.) — they will all fail without auth.",
-        "Instead, tell the user to run /onecli-setup to configure their API key. After setup, they start a new session and the gateway activates automatically.",
-        "",
-      ].join("\n")
+    emit(
+      "onecli: gateway installed but not configured — run /onecli-setup to connect external APIs.",
+      SETUP_CONTEXT
     );
     return;
   }
@@ -74,16 +114,19 @@ async function main(): Promise<void> {
   const result = await fetchContainerConfig(apiHost, apiKey);
   if (!result.ok) {
     if (result.reason === "unauthorized") {
-      process.stdout.write(
-        "OneCLI: API key is invalid or expired. Run /onecli-setup to reconfigure.\n"
+      emit(
+        "onecli: API key is invalid or expired — run /onecli-setup to reconfigure.",
+        "OneCLI: API key is invalid or expired. Tell the user to run /onecli-setup to reconfigure. External API requests will fail this session."
       );
     } else if (result.reason === "http") {
-      process.stdout.write(
-        `OneCLI: Gateway returned ${result.status}. Run /onecli-status to diagnose.\n`
+      emit(
+        `onecli: gateway returned ${result.status} — run /onecli-status to diagnose.`,
+        `OneCLI: Gateway returned ${result.status}. Run /onecli-status to diagnose. External API requests may fail this session.`
       );
     } else {
-      process.stdout.write(
-        `OneCLI: Could not reach gateway (${result.message}). Requests will not be proxied this session.\n`
+      emit(
+        `onecli: could not reach gateway (${result.message}) — requests will not be proxied this session.`,
+        `OneCLI: Could not reach gateway (${result.message}). Requests will not be proxied this session.`
       );
     }
     return;
@@ -99,16 +142,14 @@ async function main(): Promise<void> {
         process.stderr.write(
           `onecli: proxy unreachable at ${parsed.host}:${parsed.port}\n`
         );
-        process.stdout.write(
+        emit(
+          `onecli: gateway proxy unreachable at ${parsed.host}:${parsed.port} — run /onecli-setup to reconfigure.`,
           [
             "# OneCLI Gateway — Proxy Unreachable",
             "",
             `The gateway returned a proxy address (\`${parsed.host}:${parsed.port}\`) that is not reachable from this machine.`,
-            "This usually means your API key is configured for a different environment (e.g., a local dev gateway that is not running).",
-            "",
-            "**To fix:** Run `/onecli-setup` to reconfigure with the correct API key for your environment,",
-            "or start the local gateway if you intend to use it.",
-            "",
+            "This usually means the API key is configured for a different environment (e.g., a local dev gateway that is not running).",
+            "Tell the user to run /onecli-setup to reconfigure, or to start the local gateway if they intend to use it.",
           ].join("\n")
         );
         return;
@@ -123,26 +164,9 @@ async function main(): Promise<void> {
   const envFile = process.env.CLAUDE_ENV_FILE;
   injectEnvVars(envFile, config);
   process.stderr.write("onecli: gateway connected.\n");
-  process.stdout.write(
-    [
-      "# OneCLI Gateway Active",
-      "",
-      "IMPORTANT: You MUST use curl for ALL external API requests (Gmail, GitHub, Calendar, Stripe, etc.).",
-      "NEVER use MCP tools (Gmail MCP, Google Calendar MCP, Google Drive MCP, etc.) for these services.",
-      "The OneCLI gateway handles authentication automatically through HTTPS_PROXY — just use curl.",
-      "",
-      "## Rules",
-      "- ALWAYS use curl for external API requests — NEVER use MCP tools for Gmail, Calendar, Drive, GitHub, etc.",
-      "- Credentials are injected automatically — do not set Authorization headers manually",
-      "- If a request returns 401/403 with a `connect_url` in the JSON response, show that URL to the user to connect the service, then retry",
-      "- If a request returns 401/403 WITHOUT a `connect_url`, guide the user to connect the service via /onecli-connect or at https://app.onecli.sh/projects",
-      "- If the gateway returns `blocked_by_policy` (403), show the rule name — do not retry or circumvent",
-      "- If the gateway returns `rate_limited` (429), wait for `retry_after_secs` before retrying",
-      "- Never say 'I don't have access' without making the request first",
-      "",
-      "Available commands: /onecli-setup (configure API key), /onecli-status (check connections)",
-      "",
-    ].join("\n")
+  emit(
+    "onecli: gateway connected — external API requests are authenticated automatically.",
+    ACTIVE_CONTEXT
   );
 }
 
