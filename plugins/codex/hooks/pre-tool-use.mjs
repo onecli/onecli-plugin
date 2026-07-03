@@ -130,7 +130,7 @@ async function main() {
 }
 main().catch((err) => {
   process.stderr.write(
-    `onecli: pre-tool-use hook error - ${err instanceof Error ? err.message : String(err)}
+    `onecli: pre-tool-use hook error: ${err instanceof Error ? err.message : String(err)}
 `
   );
 });

@@ -111,6 +111,6 @@ async function main(): Promise<void> {
 
 main().catch((err) => {
   process.stderr.write(
-    `onecli: pre-tool-use hook error - ${err instanceof Error ? err.message : String(err)}\n`
+    `onecli: pre-tool-use hook error: ${err instanceof Error ? err.message : String(err)}\n`
   );
 });

@@ -1,6 +1,6 @@
 # OneCLI Agent Plugins
 
-Connect AI coding agents to external APIs with zero credential management. The OneCLI gateway injects stored credentials into outbound requests automatically. No API keys in your environment, no OAuth flows in your terminal.
+Connect AI coding agents to external APIs without managing credentials. The OneCLI gateway injects stored credentials into outbound requests automatically, so you don't need API keys in your environment or OAuth flows in your terminal.
 
 This repo ships the OneCLI gateway plugin for two agent platforms from a single shared codebase:
 
@@ -11,16 +11,17 @@ This repo ships the OneCLI gateway plugin for two agent platforms from a single 
 
 **Supported services**: GitHub, Gmail, Google Calendar, Google Drive, Google Docs, Google Sheets, Jira, Confluence, AWS, Datadog, Notion, Cloudflare, Todoist, Outlook, Microsoft Word, YouTube, and more.
 
-## How It Works
+## How it works
 
 All HTTPS traffic from the agent routes through the OneCLI gateway (`HTTPS_PROXY`), which intercepts requests and injects the right credentials (OAuth tokens, API keys, AWS SigV4 signatures). If a service isn't connected yet, the gateway returns a `connect_url` the agent shows you. Policy rules (block, rate limit, manual approval) are enforced at the gateway on every request.
 
-The two plugins share the same runtime but activate differently, matching what each platform's hooks can do:
+The two plugins share the same runtime but activate differently, matching what each platform's hooks can do.
 
-- **Claude Code** — the `SessionStart` hook fetches the gateway config once, writes live exports to `~/.onecli/env.sh`, and wires `BASH_ENV` so every Bash command picks them up. A `SessionEnd` hook cleans up.
-- **Codex** — hooks run as child processes and cannot mutate the session environment, and there is no `SessionEnd` event. The `SessionStart` hook therefore writes `~/.onecli/env.sh` as a **credential-free loader**; a conservative `PreToolUse` hook auto-sources it for outbound Bash commands (`curl`, `gh`, `git push`, `npm install`, …), fetching fresh gateway exports per command via `bin/onecli-codex-env.mjs`. Cleanup is an explicit skill (`onecli-cleanup`), deliberately not wired to the turn-scoped `Stop` event.
+On Claude Code, the `SessionStart` hook fetches the gateway config once, writes live exports to `~/.onecli/env.sh`, and wires `BASH_ENV` so every Bash command picks them up. A `SessionEnd` hook cleans up.
 
-## Install — Claude Code
+On Codex, hooks run as child processes and cannot mutate the session environment, and there is no `SessionEnd` event. The `SessionStart` hook therefore writes `~/.onecli/env.sh` as a **credential-free loader**; a conservative `PreToolUse` hook auto-sources it for outbound Bash commands (such as `curl`, `gh`, `git push`, `npm install`), fetching fresh gateway exports per command via `bin/onecli-codex-env.mjs`. Cleanup is an explicit skill (`onecli-cleanup`), deliberately not wired to the turn-scoped `Stop` event.
+
+## Install on Claude Code
 
 From the Claude Code Directory: **Customize → Directory → Plugins**, search **OneCLI**, click **Install**. Or from the marketplace in this repo:
 
@@ -31,7 +32,7 @@ From the Claude Code Directory: **Customize → Directory → Plugins**, search 
 
 Then run `/onecli-setup` once and start a new session. See [`plugins/claude/README.md`](plugins/claude/README.md).
 
-## Install — Codex
+## Install on Codex
 
 ```bash
 codex plugin marketplace add https://github.com/onecli/onecli-plugin.git
@@ -40,7 +41,7 @@ codex plugin add onecli@onecli
 
 Start a new thread, then invoke the `onecli-setup` skill (`@onecli:onecli-setup`). See [`plugins/codex/README.md`](plugins/codex/README.md).
 
-## Repo Layout
+## Repo layout
 
 ```
 src/                      TypeScript sources (single source of truth)

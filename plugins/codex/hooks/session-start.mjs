@@ -125,7 +125,7 @@ function writeLoaderFile(sessionId) {
 function printSetupRequired() {
   process.stdout.write(
     [
-      "OneCLI Gateway: installed but not configured \u2014 external API calls will fail.",
+      "OneCLI Gateway: installed but not configured. External API calls will fail.",
       "Run the onecli-setup skill to configure the API key, then start a new thread.",
       ""
     ].join("\n")
@@ -134,7 +134,7 @@ function printSetupRequired() {
 function printActiveMessage() {
   process.stdout.write(
     [
-      "OneCLI Gateway active. Call external APIs directly (plain `curl`/`gh`); requests are routed through the gateway and credentials are injected automatically \u2014 never add Authorization headers.",
+      "OneCLI Gateway active. Call external APIs directly (plain `curl`/`gh`); requests are routed through the gateway and credentials are injected automatically. Never add Authorization headers.",
       "On errors: `connect_url` \u2192 show it to the user and retry after they connect; `blocked_by_policy` \u2192 report the rule, do not circumvent; `rate_limited` \u2192 wait `retry_after_secs`. Details: onecli-gateway skill.",
       ""
     ].join("\n")
@@ -161,7 +161,7 @@ async function main() {
 }
 main().catch((err) => {
   process.stderr.write(
-    `onecli: plugin error - ${err instanceof Error ? err.message : String(err)}
+    `onecli: plugin error: ${err instanceof Error ? err.message : String(err)}
 `
   );
 });

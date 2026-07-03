@@ -1,6 +1,6 @@
 {
   "name": "onecli",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Connect Codex to external APIs through the OneCLI gateway without local service credential management.",
   "author": {
     "name": "OneCLI",

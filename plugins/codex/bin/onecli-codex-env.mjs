@@ -228,7 +228,7 @@ async function main() {
 }
 main().catch((err) => {
   process.stderr.write(
-    `onecli: env helper error - ${err instanceof Error ? err.message : String(err)}
+    `onecli: env helper error: ${err instanceof Error ? err.message : String(err)}
 `
   );
   process.exit(1);

@@ -1,8 +1,8 @@
 # OneCLI Plugin for Claude Code
 
-Connect Claude Code to external APIs with zero credential management. The OneCLI gateway injects stored credentials into outbound requests automatically. No API keys in your environment, no OAuth flows in your terminal.
+Connect Claude Code to external APIs without managing credentials. The OneCLI gateway injects stored credentials into outbound requests automatically, so you don't need API keys in your environment or OAuth flows in your terminal.
 
-## What It Does
+## What it does
 
 Once installed, every Claude Code session automatically routes all HTTPS traffic through the OneCLI gateway. When you ask Claude to "check my GitHub PRs", "read my emails", or "list Jira tickets", it makes direct HTTP calls and the gateway handles authentication transparently.
 
@@ -17,7 +17,7 @@ All HTTP clients (`curl`, `gh`, `gcloud`, `aws`, language libraries) honor the p
 3. Search for **OneCLI**
 4. Click **Install**
 
-### First-Time Setup
+### First-time setup
 
 After installation, run `/onecli-setup` in Claude Code:
 
@@ -37,15 +37,15 @@ If you already use the `onecli` CLI, the plugin automatically reuses your existi
 | `/onecli-setup` | Configure API key and verify gateway connectivity |
 | `/onecli-status` | Show gateway status and connected services |
 
-## How It Works
+## How it works
 
-1. **Session start**: Plugin hook reads your API key, calls OneCLI Cloud, verifies the proxy is reachable, and injects `HTTPS_PROXY` + CA certificates into the session (`~/.onecli/env.sh`, sourced via `BASH_ENV`)
-2. **Transparent proxy**: All HTTPS traffic routes through the gateway, which intercepts requests and injects the right credentials (OAuth tokens, API keys, AWS SigV4 signatures)
-3. **Service connection**: If a service isn't connected yet, the gateway returns a `connect_url` that Claude shows you. Click it, authorize, and Claude retries automatically
-4. **Policy enforcement**: Gateway enforces your policy rules (block, rate limit, manual approval) on every request, including CLI tools like `gh`
-5. **Session end**: The cleanup hook removes `~/.onecli/env.sh` and the `BASH_ENV` setting
+1. At session start, a plugin hook reads your API key, calls OneCLI Cloud, verifies the proxy is reachable, and injects `HTTPS_PROXY` and CA certificates into the session (`~/.onecli/env.sh`, sourced via `BASH_ENV`)
+2. All HTTPS traffic then routes through the gateway, which intercepts requests and injects the right credentials (OAuth tokens, API keys, AWS SigV4 signatures)
+3. If a service isn't connected yet, the gateway returns a `connect_url` that Claude shows you. Click it, authorize, and Claude retries automatically
+4. The gateway enforces your policy rules (block, rate limit, manual approval) on every request, including CLI tools like `gh`
+5. At session end, a cleanup hook removes `~/.onecli/env.sh` and the `BASH_ENV` setting
 
-## What's Included
+## What's included
 
 ```
 skills/
@@ -64,7 +64,7 @@ hooks/
   session-end    Cleans up on session end (built from ../../src/claude)
 ```
 
-Hook scripts are built artifacts — edit the TypeScript sources in `../../src/` and run `npm run build` from the repo root.
+Hook scripts are built artifacts. Edit the TypeScript sources in `../../src/` and run `npm run build` from the repo root.
 
 ## Requirements
 
