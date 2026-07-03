@@ -29,12 +29,10 @@
     "agent"
   ],
   "commands": [
-    "./plugins/claude/commands/setup.md",
-    "./plugins/claude/commands/status.md"
+    "./commands/setup.md",
+    "./commands/status.md"
   ],
   "agents": [
-    "./plugins/claude/agents/integration-architect.md"
-  ],
-  "skills": "./plugins/claude/skills/",
-  "hooks": "./hooks/hooks.json"
+    "./agents/integration-architect.md"
+  ]
 }

@@ -1,13 +1,13 @@
-import { readFileSync, writeFileSync, unlinkSync } from "node:fs";
-import { homedir } from "node:os";
+import { readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { onecliPaths, userHome } from "../shared/runtime.mjs";
 
-const ENV_SH_PATH = join(homedir(), ".onecli", "env.sh");
-const SETTINGS_PATH = join(homedir(), ".claude", "settings.json");
+const paths = onecliPaths();
+const SETTINGS_PATH = join(userHome(), ".claude", "settings.json");
 
 function removeEnvFile(): void {
   try {
-    unlinkSync(ENV_SH_PATH);
+    unlinkSync(paths.envPath);
   } catch {
     // already gone
   }
@@ -17,7 +17,7 @@ function removeBashEnv(): void {
   try {
     const settings = JSON.parse(readFileSync(SETTINGS_PATH, "utf-8"));
     const env = settings.env;
-    if (!env || env.BASH_ENV !== ENV_SH_PATH) return;
+    if (!env || env.BASH_ENV !== paths.envPath) return;
 
     delete env.BASH_ENV;
     if (Object.keys(env).length === 0) {

@@ -1,0 +1,43 @@
+{
+  "name": "onecli",
+  "version": "0.2.0",
+  "description": "Connect Codex to external APIs through the OneCLI gateway without local service credential management.",
+  "author": {
+    "name": "OneCLI",
+    "url": "https://github.com/onecli"
+  },
+  "homepage": "https://onecli.sh",
+  "repository": "https://github.com/onecli/onecli-plugin",
+  "license": "Apache-2.0",
+  "keywords": [
+    "onecli",
+    "gateway",
+    "proxy",
+    "credentials",
+    "api",
+    "github",
+    "google",
+    "aws",
+    "oauth",
+    "authentication",
+    "codex"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OneCLI Gateway",
+    "shortDescription": "Use OneCLI credentials from Codex API calls.",
+    "longDescription": "Adds Codex skills and a session-start hook for routing external API requests through the OneCLI HTTPS gateway. OneCLI injects stored credentials at the proxy boundary so Codex does not need service-specific API keys in the local environment.",
+    "developerName": "OneCLI",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive"
+    ],
+    "websiteURL": "https://onecli.sh/",
+    "defaultPrompt": [
+      "Set up OneCLI Gateway in Codex.",
+      "Check my OneCLI gateway status.",
+      "Plan a multi-service API workflow through OneCLI."
+    ],
+    "brandColor": "#111827"
+  }
+}

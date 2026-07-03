@@ -6,8 +6,7 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "outDir": "../hooks",
-    "rootDir": "src",
+    "noEmit": true,
     "declaration": false,
     "sourceMap": false
   },

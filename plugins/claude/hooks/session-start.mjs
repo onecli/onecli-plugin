@@ -1,25 +1,13 @@
-// hooks/src/session-start.mts
-import {
-  readFileSync,
-  writeFileSync,
-  appendFileSync,
-  mkdirSync
-} from "fs";
-import { homedir } from "os";
-import { join } from "path";
+// src/claude/session-start.mts
+import { appendFileSync, mkdirSync as mkdirSync2, readFileSync as readFileSync2, writeFileSync as writeFileSync2 } from "fs";
+import { dirname as dirname2, join as join2 } from "path";
+
+// src/shared/runtime.mts
 import { execSync } from "child_process";
+import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { createConnection } from "net";
-var ONECLI_DIR = join(homedir(), ".onecli");
-var ENV_SH_PATH = join(ONECLI_DIR, "env.sh");
-var CA_BUNDLE_PATH = join(ONECLI_DIR, "ca-bundle.pem");
-var CREDENTIALS_PATH = join(ONECLI_DIR, "credentials", "api-key");
-var CONFIG_PATH = join(ONECLI_DIR, "config.json");
-var PLUGIN_AUTH_PATH = join(
-  homedir(),
-  ".config",
-  "onecli-plugin",
-  "auth.json"
-);
+import { homedir } from "os";
+import { dirname, join } from "path";
 var DEFAULT_API_HOST = "https://app.onecli.sh";
 var KEYCHAIN_SERVICE = "onecli-api-key";
 var SYSTEM_CA_PATHS = [
@@ -36,6 +24,21 @@ var CA_ENV_KEYS = [
   "GIT_SSL_CAINFO",
   "DENO_CERT"
 ];
+function userHome() {
+  return process.env.HOME || homedir();
+}
+function onecliPaths(home = userHome()) {
+  const onecliDir = join(home, ".onecli");
+  return {
+    home,
+    onecliDir,
+    envPath: join(onecliDir, "env.sh"),
+    caBundlePath: join(onecliDir, "ca-bundle.pem"),
+    credentialsPath: join(onecliDir, "credentials", "api-key"),
+    configPath: join(onecliDir, "config.json"),
+    pluginAuthPath: join(home, ".config", "onecli-plugin", "auth.json")
+  };
+}
 function safeReadFile(path) {
   try {
     return readFileSync(path, "utf-8").trim();
@@ -52,15 +55,28 @@ function safeReadJson(path) {
     return null;
   }
 }
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+function ensurePrivateDir(path) {
+  mkdirSync(path, { recursive: true, mode: 448 });
+  try {
+    chmodSync(path, 448);
+  } catch {
+  }
+}
+function writeFilePrivate(path, content) {
+  ensurePrivateDir(dirname(path));
+  writeFileSync(path, content, { mode: 384 });
+  chmodSync(path, 384);
+}
 function isOnecliProxy(value) {
   if (!value) return false;
-  return value.includes("onecli") || value.includes(":10255");
+  return value.includes("onecli") || value.includes(":10255") || value.includes("aoc_");
 }
-function resolveApiKey() {
-  if (process.env.ONECLI_API_KEY) {
-    return process.env.ONECLI_API_KEY;
-  }
-  const fileKey = safeReadFile(CREDENTIALS_PATH);
+function resolveApiKey(paths2 = onecliPaths()) {
+  if (process.env.ONECLI_API_KEY) return process.env.ONECLI_API_KEY;
+  const fileKey = safeReadFile(paths2.credentialsPath);
   if (fileKey) return fileKey;
   if (process.platform === "darwin") {
     try {
@@ -72,45 +88,28 @@ function resolveApiKey() {
     } catch {
     }
   }
-  const pluginAuth = safeReadJson(PLUGIN_AUTH_PATH);
+  const pluginAuth = safeReadJson(paths2.pluginAuthPath);
   if (pluginAuth?.apiKey) return pluginAuth.apiKey;
   return null;
 }
-function resolveApiHost() {
-  if (process.env.ONECLI_API_HOST) {
-    return process.env.ONECLI_API_HOST;
-  }
-  const config = safeReadJson(CONFIG_PATH);
+function resolveApiHost(paths2 = onecliPaths()) {
+  if (process.env.ONECLI_API_HOST) return process.env.ONECLI_API_HOST;
+  const config = safeReadJson(paths2.configPath);
   if (config?.["api-host"]) return config["api-host"];
   return DEFAULT_API_HOST;
 }
-async function fetchContainerConfig(apiHost, apiKey) {
+async function fetchContainerConfig(apiHost, apiKey, opts = {}) {
   try {
     const response = await fetch(`${apiHost}/api/container-config`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
+      headers: { Authorization: `Bearer ${apiKey}`, ...opts.headers },
       signal: AbortSignal.timeout(1e4)
     });
-    if (response.status === 401) {
-      process.stdout.write(
-        "OneCLI: API key is invalid or expired. Run /onecli-setup to reconfigure.\n"
-      );
-      return null;
-    }
-    if (!response.ok) {
-      process.stdout.write(
-        `OneCLI: Gateway returned ${response.status}. Run /onecli-status to diagnose.
-`
-      );
-      return null;
-    }
-    return await response.json();
+    if (response.status === 401) return { ok: false, reason: "unauthorized" };
+    if (!response.ok) return { ok: false, reason: "http", status: response.status };
+    return { ok: true, config: await response.json() };
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    process.stdout.write(
-      `OneCLI: Could not reach gateway (${message}). Requests will not be proxied this session.
-`
-    );
-    return null;
+    const message = err instanceof Error ? err.message : "unknown error";
+    return { ok: false, reason: "network", message };
   }
 }
 function parseProxyUrl(proxyUrl) {
@@ -138,7 +137,7 @@ function probeProxy(host, port, timeoutMs = 3e3) {
     });
   });
 }
-function writeCABundle(gatewayCert) {
+function writeCABundle(gatewayCert, paths2 = onecliPaths()) {
   let systemCAs = "";
   for (const caPath of SYSTEM_CA_PATHS) {
     const content = safeReadFile(caPath);
@@ -149,22 +148,24 @@ function writeCABundle(gatewayCert) {
   }
   const bundle = systemCAs ? `${systemCAs}
 ${gatewayCert}` : gatewayCert;
-  const existing = safeReadFile(CA_BUNDLE_PATH);
-  if (existing === bundle) return;
-  mkdirSync(ONECLI_DIR, { recursive: true, mode: 448 });
-  writeFileSync(CA_BUNDLE_PATH, bundle, { mode: 384 });
-}
-function buildEnvLines(config) {
-  const lines = [];
-  for (const [key, value] of Object.entries(config.env)) {
-    if (key === "NODE_EXTRA_CA_CERTS" || key === "SSL_CERT_FILE" || key === "REQUESTS_CA_BUNDLE" || key === "CURL_CA_BUNDLE" || key === "GIT_SSL_CAINFO" || key === "DENO_CERT") {
-      continue;
-    }
-    lines.push(`export ${key}=${value}`);
+  const existing = safeReadFile(paths2.caBundlePath);
+  if (existing !== bundle) {
+    writeFilePrivate(paths2.caBundlePath, bundle);
+  } else {
+    chmodSync(paths2.caBundlePath, 384);
   }
-  if (config.caCertificate) {
+}
+function buildEnvLines(config, opts) {
+  const env = config && typeof config.env === "object" && config.env !== null ? config.env : {};
+  const lines = [];
+  for (const [key, value] of Object.entries(env)) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue;
+    if (CA_ENV_KEYS.includes(key)) continue;
+    lines.push(`export ${key}=${shellQuote(value)}`);
+  }
+  if (config?.caCertificate) {
     for (const key of CA_ENV_KEYS) {
-      lines.push(`export ${key}=${CA_BUNDLE_PATH}`);
+      lines.push(`export ${key}=${shellQuote(opts.caBundlePath)}`);
     }
   }
   lines.push("export GIT_TERMINAL_PROMPT=0");
@@ -172,35 +173,38 @@ function buildEnvLines(config) {
   lines.push("export NODE_USE_ENV_PROXY=1");
   return lines;
 }
+
+// src/claude/session-start.mts
+var paths = onecliPaths();
 function injectEnvVars(envFile, config) {
-  const lines = buildEnvLines(config);
+  const lines = buildEnvLines(config, { caBundlePath: paths.caBundlePath });
   const content = lines.join("\n") + "\n";
-  mkdirSync(ONECLI_DIR, { recursive: true, mode: 448 });
-  writeFileSync(ENV_SH_PATH, content, { mode: 384 });
+  writeFilePrivate(paths.envPath, content);
   if (envFile) {
     appendFileSync(envFile, content);
   }
   ensureBashEnv();
 }
 function ensureBashEnv() {
-  const settingsPath = join(homedir(), ".claude", "settings.json");
+  const settingsPath = join2(userHome(), ".claude", "settings.json");
   let settings = {};
   try {
-    settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+    settings = JSON.parse(readFileSync2(settingsPath, "utf-8"));
   } catch {
   }
   const env = settings.env ?? {};
-  if (env.BASH_ENV === ENV_SH_PATH) return;
-  env.BASH_ENV = ENV_SH_PATH;
+  if (env.BASH_ENV === paths.envPath) return;
+  env.BASH_ENV = paths.envPath;
   settings.env = env;
-  writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+  mkdirSync2(dirname2(settingsPath), { recursive: true });
+  writeFileSync2(settingsPath, JSON.stringify(settings, null, 2) + "\n");
 }
 async function main() {
   if (isOnecliProxy(process.env.HTTPS_PROXY)) {
     process.stderr.write("onecli: gateway already active (via onecli run).\n");
     return;
   }
-  const apiKey = resolveApiKey();
+  const apiKey = resolveApiKey(paths);
   if (!apiKey) {
     process.stderr.write("onecli: no API key found. Run /onecli-setup to configure.\n");
     process.stdout.write(
@@ -215,9 +219,27 @@ async function main() {
     );
     return;
   }
-  const apiHost = resolveApiHost();
-  const config = await fetchContainerConfig(apiHost, apiKey);
-  if (!config) return;
+  const apiHost = resolveApiHost(paths);
+  const result = await fetchContainerConfig(apiHost, apiKey);
+  if (!result.ok) {
+    if (result.reason === "unauthorized") {
+      process.stdout.write(
+        "OneCLI: API key is invalid or expired. Run /onecli-setup to reconfigure.\n"
+      );
+    } else if (result.reason === "http") {
+      process.stdout.write(
+        `OneCLI: Gateway returned ${result.status}. Run /onecli-status to diagnose.
+`
+      );
+    } else {
+      process.stdout.write(
+        `OneCLI: Could not reach gateway (${result.message}). Requests will not be proxied this session.
+`
+      );
+    }
+    return;
+  }
+  const config = result.config;
   const proxyUrl = config.env.HTTPS_PROXY || config.env.https_proxy;
   if (proxyUrl) {
     const parsed = parseProxyUrl(proxyUrl);
@@ -245,7 +267,7 @@ async function main() {
     }
   }
   if (config.caCertificate) {
-    writeCABundle(config.caCertificate);
+    writeCABundle(config.caCertificate, paths);
   }
   const envFile = process.env.CLAUDE_ENV_FILE;
   injectEnvVars(envFile, config);

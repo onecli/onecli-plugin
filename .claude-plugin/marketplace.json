@@ -12,10 +12,7 @@
         "name": "OneCLI"
       },
       "category": "development",
-      "source": {
-        "source": "url",
-        "url": "https://github.com/onecli/onecli-plugin.git"
-      },
+      "source": "./plugins/claude",
       "homepage": "https://onecli.sh",
       "keywords": [
         "onecli",
