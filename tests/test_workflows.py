@@ -474,7 +474,8 @@ def assert_codex_setup_status_cleanup(node: str) -> None:
             f'test "$HTTPS_PROXY" = {services["proxy_url"]} && '
             'test -n "$HTTPS_PROXY" && '
             'test "$GIT_TERMINAL_PROMPT" = 0 && '
-            'test "$NODE_USE_ENV_PROXY" = 1'
+            'test "$NODE_USE_ENV_PROXY" = 1 && '
+            'test "$AWS_CA_BUNDLE" = "$HOME/.onecli/ca-bundle.pem"'
         )
         run_checked(status_check, env=env, cwd=CODEX, shell=True)
         check(services["api"].requests, "helper did not fetch fake OneCLI API config")
@@ -545,9 +546,17 @@ def assert_codex_plugin_root_hook_command(node: str, command: str) -> None:
         assert_loader_file(home)
 
 
-def run_pre_tool(node: str, home: Path, command: str) -> str:
+def run_pre_tool(
+    node: str, home: Path, command: str, extra_env: dict[str, str] | None = None
+) -> str:
     env = os.environ.copy()
+    # The dev machine may itself run behind the OneCLI gateway; a real proxy
+    # env would trigger the hook's wrapper-active short-circuit.
+    for key in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
+        env.pop(key, None)
     env["HOME"] = str(home)
+    if extra_env:
+        env.update(extra_env)
     payload = {
         "hook_event_name": "PreToolUse",
         "tool_name": "Bash",
@@ -596,6 +605,32 @@ def assert_pre_tool_use(node: str) -> None:
 
         node_local = run_pre_tool(node, home, "node scripts/build.js")
         check(node_local == "", "PreToolUse should skip local node commands")
+
+        aws_network = run_pre_tool(node, home, "aws s3 ls")
+        check("updatedInput" in aws_network, "PreToolUse should rewrite aws commands")
+
+        aws_local = run_pre_tool(node, home, "aws configure list")
+        check(aws_local == "", "PreToolUse should skip aws configure")
+
+        aws_flag = run_pre_tool(node, home, "aws --version")
+        check(aws_flag == "", "PreToolUse should skip aws flag invocations")
+
+        tf_network = run_pre_tool(node, home, "terraform plan")
+        check("updatedInput" in tf_network, "PreToolUse should rewrite network terraform commands")
+
+        tf_local = run_pre_tool(node, home, "terraform fmt")
+        check(tf_local == "", "PreToolUse should skip local terraform commands")
+
+        wrapper_active = run_pre_tool(
+            node,
+            home,
+            "curl -s https://api.github.com/user",
+            extra_env={"HTTPS_PROXY": "http://aoc_token:x@127.0.0.1:10255"},
+        )
+        check(
+            wrapper_active == "",
+            "PreToolUse should skip when the wrapper already exported the gateway env",
+        )
 
 
 def assert_claude_session_flow(node: str) -> None:

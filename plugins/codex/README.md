@@ -34,7 +34,7 @@ Codex hooks run as child processes, so they cannot mutate the Codex session envi
 
 - The `SessionStart` hook writes `~/.onecli/env.sh` as a **non-secret loader**. It records the Codex `session_id` and the plugin helper path, but contains no live proxy credential.
 - Sourcing the loader runs `bin/onecli-codex-env.mjs`, which resolves the OneCLI API key, fetches the gateway config from OneCLI Cloud, verifies the proxy is reachable, refreshes the CA bundle, and emits shell exports for the current command only.
-- A conservative `PreToolUse` hook auto-sources the loader for supported outbound Bash commands (`curl`, `wget`, `gh`, network `git`/`npm`/`pip` subcommands, and interpreter invocations that reference URLs). Manual sourcing remains available:
+- A conservative `PreToolUse` hook auto-sources the loader for supported outbound Bash commands (`curl`, `wget`, `gh`, `aws`, network `git`/`npm`/`pip`/`terraform` subcommands, and interpreter invocations that reference URLs). When Codex was launched through `onecli run`, the wrapper already exported the gateway env to the whole process tree, so the hook stays out of the way. Manual sourcing remains available:
 
 ```bash
 . ~/.onecli/env.sh && curl -s "https://api.github.com/user"
