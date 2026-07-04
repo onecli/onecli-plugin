@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
 import { basename } from "node:path";
-import { onecliPaths, readHookInput } from "../shared/runtime.mjs";
+import { isOnecliProxy, onecliPaths, readHookInput } from "../shared/runtime.mjs";
 
 const URL_PATTERN = /\b(?:https?:\/\/|ssh:\/\/|git@)/i;
 const PACKAGE_NETWORK_COMMANDS = new Set([
@@ -25,6 +25,17 @@ const GIT_NETWORK_COMMANDS = new Set([
   "remote",
   "submodule",
 ]);
+const TERRAFORM_NETWORK_COMMANDS = new Set([
+  "apply",
+  "destroy",
+  "get",
+  "import",
+  "init",
+  "plan",
+  "refresh",
+]);
+// aws subcommands that never leave the machine.
+const AWS_LOCAL_COMMANDS = new Set(["configure", "help"]);
 
 function splitCommandPrefix(command: string): { name: string; arg: string } {
   const trimmed = command.trimStart();
@@ -65,6 +76,14 @@ function shouldRewrite(command: string): boolean {
     return true;
   }
 
+  if (name === "aws") {
+    return Boolean(arg) && !arg.startsWith("-") && !AWS_LOCAL_COMMANDS.has(arg);
+  }
+
+  if (name === "terraform" || name === "tofu") {
+    return TERRAFORM_NETWORK_COMMANDS.has(arg);
+  }
+
   if (name === "git") {
     return GIT_NETWORK_COMMANDS.has(arg);
   }
@@ -103,6 +122,10 @@ async function main(): Promise<void> {
   const toolInput = input.tool_input as { command?: unknown } | undefined;
   const command = toolInput?.command;
   if (input.tool_name !== "Bash" || typeof command !== "string") return;
+  // Under `onecli run`, the wrapper already exported the gateway env to the
+  // whole process tree; sourcing the loader would only re-fetch the same
+  // exports from OneCLI Cloud on every command.
+  if (isOnecliProxy(process.env.HTTPS_PROXY)) return;
   if (!existsSync(onecliPaths().envPath)) return;
   if (isAlreadyHandled(command)) return;
   if (!shouldRewrite(command)) return;

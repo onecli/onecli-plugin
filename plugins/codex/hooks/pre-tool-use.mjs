@@ -25,6 +25,10 @@ function onecliPaths(home = userHome()) {
     pluginAuthPath: join(home, ".config", "onecli-plugin", "auth.json")
   };
 }
+function isOnecliProxy(value) {
+  if (!value) return false;
+  return value.includes("onecli") || value.includes(":10255") || value.includes("aoc_");
+}
 async function readHookInput() {
   if (process.stdin.isTTY) return {};
   let raw = "";
@@ -64,6 +68,16 @@ var GIT_NETWORK_COMMANDS = /* @__PURE__ */ new Set([
   "remote",
   "submodule"
 ]);
+var TERRAFORM_NETWORK_COMMANDS = /* @__PURE__ */ new Set([
+  "apply",
+  "destroy",
+  "get",
+  "import",
+  "init",
+  "plan",
+  "refresh"
+]);
+var AWS_LOCAL_COMMANDS = /* @__PURE__ */ new Set(["configure", "help"]);
 function splitCommandPrefix(command) {
   const trimmed = command.trimStart();
   const match = trimmed.match(/^([A-Za-z0-9_./-]+)(?:\s+([A-Za-z0-9_./:-]+))?/);
@@ -90,6 +104,12 @@ function shouldRewrite(command) {
   }
   if (name === "gh") {
     return true;
+  }
+  if (name === "aws") {
+    return Boolean(arg) && !arg.startsWith("-") && !AWS_LOCAL_COMMANDS.has(arg);
+  }
+  if (name === "terraform" || name === "tofu") {
+    return TERRAFORM_NETWORK_COMMANDS.has(arg);
   }
   if (name === "git") {
     return GIT_NETWORK_COMMANDS.has(arg);
@@ -123,6 +143,7 @@ async function main() {
   const toolInput = input.tool_input;
   const command = toolInput?.command;
   if (input.tool_name !== "Bash" || typeof command !== "string") return;
+  if (isOnecliProxy(process.env.HTTPS_PROXY)) return;
   if (!existsSync(onecliPaths().envPath)) return;
   if (isAlreadyHandled(command)) return;
   if (!shouldRewrite(command)) return;

@@ -1,6 +1,6 @@
 {
   "name": "onecli",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Connect AI agents to external APIs with zero credential management. OneCLI gateway injects stored credentials into outbound requests automatically.",
   "author": {
     "name": "OneCLI",
