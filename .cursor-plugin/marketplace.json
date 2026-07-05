@@ -1,0 +1,16 @@
+{
+  "name": "onecli",
+  "owner": {
+    "name": "OneCLI"
+  },
+  "metadata": {
+    "description": "OneCLI gateway plugins for Cursor, Codex, and Claude Code."
+  },
+  "plugins": [
+    {
+      "name": "onecli",
+      "source": "plugins/cursor",
+      "description": "Route agent HTTPS traffic through the OneCLI gateway with injected credentials."
+    }
+  ]
+}

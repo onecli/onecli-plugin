@@ -1,0 +1,18 @@
+---
+description: OneCLI gateway usage rules for outbound API calls through HTTPS_PROXY
+alwaysApply: true
+---
+
+# OneCLI Gateway (Cursor)
+
+Outbound HTTPS traffic from shell commands routes through the OneCLI gateway. Credentials are injected at the proxy boundary.
+
+## Rules
+
+- Call real API URLs directly with curl, gh, git, npm, etc. Do not set Authorization headers manually.
+- If a response includes `connect_url`, show it to the user on its own line and retry after they connect.
+- If a response includes `blocked_by_policy`, report the policy and do not circumvent it.
+- If a response includes `retry_after_secs`, wait before retrying.
+- For tools that require local credential files, create stubs with `"onecli-managed"` at the exact path named in the error, mode 0600, then retry.
+- Never ask the user for service API keys or OAuth tokens; direct them to connect services in the OneCLI dashboard.
+- Use the `onecli-gateway` and `onecli-providers` skills for detailed behavior and endpoint reference.
