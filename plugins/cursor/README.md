@@ -4,7 +4,7 @@ Connect Cursor Agent to external APIs through the OneCLI gateway without managin
 
 ## Installation
 
-See [INSTALL.md](./INSTALL.md) for the full local install flow (Customize → Plugins → + Add).
+See [INSTALL.md](./INSTALL.md) for install steps and [docs/CURSOR_SETUP.md](./docs/CURSOR_SETUP.md) for the screenshot walkthrough.
 
 Quick symlink fallback:
 
