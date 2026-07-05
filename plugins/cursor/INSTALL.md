@@ -1,6 +1,6 @@
 # Install OneCLI for Cursor (local repo)
 
-For a visual walkthrough with screenshots, see [CURSOR_SETUP.md](./docs/CURSOR_SETUP.md).
+For a step-by-step guide, see [CURSOR_SETUP.md](./docs/CURSOR_SETUP.md). Screenshots are in [PR #7](https://github.com/onecli/onecli-plugin/pull/7).
 
 ## 1. Build the plugin
 

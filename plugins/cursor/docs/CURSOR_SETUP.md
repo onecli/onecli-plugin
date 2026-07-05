@@ -1,6 +1,8 @@
-# Cursor setup guide (with screenshots)
+# Cursor setup guide
 
-Visual walkthrough for installing and verifying the OneCLI Gateway plugin in Cursor.
+Step-by-step install and verification for the OneCLI Gateway plugin in Cursor.
+
+> Screenshots for each step are attached in [PR #7](https://github.com/onecli/onecli-plugin/pull/7) (not stored in the repo).
 
 ## Prerequisites
 
@@ -20,17 +22,11 @@ npm run build
 3. Click **+ Add** → **From Local Repo**.
 4. Select the `plugins/cursor` folder (must contain `.cursor-plugin/marketplace.json`).
 
-![Customize → Plugins → + Add → From Local Repo](./screenshots/01-customize-add-from-local.png)
-
 ## Step 2 — Install from the local marketplace
 
 Under **Onecli Local**, click **Add** on **OneCLI Gateway**.
 
-![OneCLI Gateway in local marketplace](./screenshots/02-marketplace-onecli-local.png)
-
 After install, the plugin shows **✓ Added**.
-
-![Plugin installed](./screenshots/03-plugin-added.png)
 
 ## Step 3 — Enable third-party extensibility
 
@@ -54,8 +50,6 @@ Open the installed **OneCLI Gateway** plugin detail page. You should see:
 | Skills | 6 | Setup, status, gateway usage, providers, integrations, cleanup |
 | Rules | 1 | Always-on outbound API guidance via `HTTPS_PROXY` |
 | Hooks | 3 | `sessionStart`, `preToolUse` (Shell), `sessionEnd` |
-
-![Plugin detail — skills, rules, hooks](./screenshots/04-plugin-hooks-skills-rules.png)
 
 Also check **Settings → Hooks** for the three hook entries.
 
@@ -83,8 +77,6 @@ curl -s https://api.github.com/rate_limit | python3 -c "import json,sys; print(j
 ### Dashboard Activity
 
 Open your OneCLI project **Activity** tab. Successful gateway traffic appears as `GET api.github.com/...` rows with HTTP 200.
-
-![OneCLI dashboard Activity](./screenshots/05-dashboard-activity.png)
 
 > **Note:** Requests may be labeled with your project's default agent name (e.g. "Codex") — that is expected and does not mean the wrong plugin is running.
 
