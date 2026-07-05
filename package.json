@@ -12,7 +12,8 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "python3 tests/test_workflows.py"
+    "test": "python3 tests/test_workflows.py",
+    "test:live-cursor": "python3 tests/test_cursor_live_e2e.py"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -1,0 +1,25 @@
+{
+  "name": "onecli",
+  "displayName": "OneCLI Gateway",
+  "version": "0.2.4",
+  "description": "Connect Cursor to external APIs through the OneCLI gateway without local service credential management.",
+  "author": {
+    "name": "OneCLI",
+    "email": "plugins@onecli.sh"
+  },
+  "homepage": "https://onecli.sh",
+  "repository": "https://github.com/onecli/onecli-plugin",
+  "license": "Apache-2.0",
+  "keywords": [
+    "onecli",
+    "gateway",
+    "proxy",
+    "credentials",
+    "cursor",
+    "cursor-plugin"
+  ],
+  "category": "developer-tools",
+  "skills": "./skills/",
+  "rules": "./rules/",
+  "hooks": "./hooks/hooks.json"
+}

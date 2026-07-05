@@ -1,0 +1,16 @@
+{
+  "name": "onecli-local",
+  "owner": {
+    "name": "OneCLI"
+  },
+  "metadata": {
+    "description": "Local marketplace for the OneCLI Cursor gateway plugin."
+  },
+  "plugins": [
+    {
+      "name": "onecli",
+      "source": ".",
+      "description": "Route agent HTTPS traffic through the OneCLI gateway with injected credentials."
+    }
+  ]
+}

@@ -21,6 +21,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 CLAUDE = REPO / "plugins" / "claude"
 CODEX = REPO / "plugins" / "codex"
+CURSOR = REPO / "plugins" / "cursor"
 API_KEY = "oc_test_workflows"
 
 
@@ -59,7 +60,8 @@ class ConfigHandler(BaseHTTPRequestHandler):
             {
                 "path": self.path,
                 "authorization": self.headers.get("Authorization"),
-                "session_id": self.headers.get("X-OneCLI-Codex-Session-Id"),
+                "session_id": self.headers.get("X-OneCLI-Codex-Session-Id")
+                or self.headers.get("X-OneCLI-Cursor-Session-Id"),
             }
         )
         if self.path != "/api/container-config":
@@ -156,6 +158,8 @@ def clean_env(home: Path, api_url: str) -> dict[str, str]:
         "ONECLI_API_KEY",
         "ONECLI_CODEX_PLUGIN_ROOT",
         "ONECLI_CODEX_SESSION_ID",
+        "ONECLI_CURSOR_PLUGIN_ROOT",
+        "ONECLI_CURSOR_SESSION_ID",
         "PLUGIN_ROOT",
     ):
         env.pop(key, None)
@@ -205,15 +209,21 @@ def event_commands(hooks: dict, event: str) -> list[str]:
     return commands
 
 
+def cursor_hook_commands(hooks: dict, event: str) -> list[str]:
+    return [entry["command"] for entry in hooks["hooks"].get(event, [])]
+
+
 def assert_manifests_and_hooks() -> str:
     claude_manifest = load_json(CLAUDE / ".claude-plugin" / "plugin.json")
     codex_manifest = load_json(CODEX / ".codex-plugin" / "plugin.json")
+    cursor_manifest = load_json(CURSOR / ".cursor-plugin" / "plugin.json")
 
     check(claude_manifest["name"] == "onecli", "claude plugin name drifted")
     check(codex_manifest["name"] == "onecli", "codex plugin name drifted")
+    check(cursor_manifest["name"] == "onecli", "cursor plugin name drifted")
     check(
-        claude_manifest["version"] == codex_manifest["version"],
-        "claude and codex plugin versions drifted apart",
+        claude_manifest["version"] == codex_manifest["version"] == cursor_manifest["version"],
+        "claude, codex, and cursor plugin versions drifted apart",
     )
 
     # Root compatibility shim: keeps the repo root installable as the "onecli"
@@ -298,6 +308,39 @@ def assert_manifests_and_hooks() -> str:
     )
     check((CODEX / "hooks" / "session-end.mjs").exists(), "codex cleanup script is missing")
     check((CODEX / "bin" / "onecli-codex-env.mjs").exists(), "codex env helper is missing")
+
+    check(cursor_manifest.get("skills") == "./skills/", "cursor skills path drifted")
+    check(cursor_manifest.get("rules") == "./rules/", "cursor rules path drifted")
+    check(cursor_manifest.get("hooks") == "./hooks/hooks.json", "cursor hooks path drifted")
+    check((CURSOR / ".cursor-plugin" / "marketplace.json").exists(), "cursor marketplace manifest is missing for local + Add install")
+    check((CURSOR / "rules" / "onecli-gateway.mdc").exists(), "cursor gateway rule is missing")
+
+    cursor_hooks = load_json(CURSOR / "hooks" / "hooks.json")
+    check(cursor_hooks.get("version") == 1, "cursor hooks.json must use schema version 1")
+    cursor_events = set(cursor_hooks["hooks"])
+    check("sessionStart" in cursor_events, "cursor sessionStart hook is missing")
+    check("preToolUse" in cursor_events, "cursor preToolUse hook is missing")
+    check("sessionEnd" in cursor_events, "cursor sessionEnd hook is missing")
+    check(
+        cursor_hook_commands(cursor_hooks, "sessionStart")
+        == ["node ./hooks/session-start.mjs"],
+        "cursor sessionStart command drifted",
+    )
+    check(
+        cursor_hook_commands(cursor_hooks, "preToolUse")
+        == ["node ./hooks/pre-tool-use.mjs"],
+        "cursor preToolUse command drifted",
+    )
+    check(
+        cursor_hooks["hooks"]["preToolUse"][0].get("matcher") == "Shell",
+        "cursor preToolUse must match Shell",
+    )
+    check(
+        cursor_hook_commands(cursor_hooks, "sessionEnd")
+        == ["node ./hooks/session-end.mjs"],
+        "cursor sessionEnd command drifted",
+    )
+    check((CURSOR / "bin" / "onecli-cursor-env.mjs").exists(), "cursor env helper is missing")
     return command
 
 
@@ -305,6 +348,14 @@ def assert_skill_inventory() -> None:
     expected = {
         CLAUDE: {"gateway": "onecli-gateway", "providers": "onecli-providers"},
         CODEX: {
+            "integration-architect": "integration-architect",
+            "onecli-cleanup": "onecli-cleanup",
+            "onecli-gateway": "onecli-gateway",
+            "onecli-providers": "onecli-providers",
+            "onecli-setup": "onecli-setup",
+            "onecli-status": "onecli-status",
+        },
+        CURSOR: {
             "integration-architect": "integration-architect",
             "onecli-cleanup": "onecli-cleanup",
             "onecli-gateway": "onecli-gateway",
@@ -357,6 +408,17 @@ def assert_workflow_docs() -> None:
             "explicit deactivate or uninstall cleanup",
             "Codex does not expose a true `SessionEnd` hook.",
             "Do not wire this cleanup to Codex `Stop`",
+            'node "<plugin-root>/hooks/session-end.mjs"',
+            "rm -f ~/.onecli/env.sh",
+            "CLEANED",
+        ],
+        normalize=True,
+    )
+    assert_contains(
+        "plugins/cursor/skills/onecli-cleanup/SKILL.md",
+        [
+            "explicit deactivate or uninstall cleanup",
+            "Cursor runs `sessionEnd` automatically",
             'node "<plugin-root>/hooks/session-end.mjs"',
             "rm -f ~/.onecli/env.sh",
             "CLEANED",
@@ -420,6 +482,10 @@ def assert_node_syntax(node: str) -> None:
         CODEX / "hooks" / "session-end.mjs",
         CODEX / "hooks" / "pre-tool-use.mjs",
         CODEX / "bin" / "onecli-codex-env.mjs",
+        CURSOR / "hooks" / "session-start.mjs",
+        CURSOR / "hooks" / "session-end.mjs",
+        CURSOR / "hooks" / "pre-tool-use.mjs",
+        CURSOR / "bin" / "onecli-cursor-env.mjs",
     ]
     for script in scripts:
         run_checked([node, "--check", str(script)], env=os.environ.copy(), cwd=REPO)
@@ -633,6 +699,108 @@ def assert_pre_tool_use(node: str) -> None:
         )
 
 
+def assert_cursor_loader_file(home: Path) -> None:
+    env_file = home / ".onecli" / "env.sh"
+    check(env_file.exists(), "cursor session-start did not write ~/.onecli/env.sh")
+    mode = stat.S_IMODE(env_file.stat().st_mode)
+    check(mode == 0o600, f"env.sh mode should be 0600, got {oct(mode)}")
+    content = env_file.read_text()
+    check("onecli-cursor-env.mjs" in content, "env.sh must invoke the cursor loader helper")
+    check("ONECLI_CURSOR_SESSION_ID='sess_cursor'" in content, "env.sh must persist Cursor session id")
+    check("HTTPS_PROXY" not in content, "env.sh must not contain live proxy exports")
+    check(API_KEY not in content, "env.sh must not contain the API key")
+
+
+def assert_cursor_session_flow(node: str) -> None:
+    with tempfile.TemporaryDirectory() as tmp, fake_onecli_services() as services:
+        home = Path(tmp) / "home"
+        home.mkdir()
+        write_api_key(home)
+        env = clean_env(home, services["api_url"])
+        hook_input = json.dumps({"hook_event_name": "sessionStart", "session_id": "sess_cursor"})
+
+        result = run_checked(
+            [node, str(CURSOR / "hooks" / "session-start.mjs")],
+            env=env,
+            cwd=CURSOR,
+            input_text=hook_input,
+        )
+        payload = json.loads(result.stdout)
+        check(payload.get("env", {}).get("HTTPS_PROXY") == services["proxy_url"], "cursor session-start must return session env")
+        check("OneCLI Gateway active" in payload.get("additional_context", ""), "cursor session-start must return gateway context")
+        check(services["api"].requests, "cursor session-start must fetch gateway config")
+        check(
+            services["api"].requests[-1]["session_id"] == "sess_cursor",
+            "cursor session-start must forward Cursor session id",
+        )
+        assert_cursor_loader_file(home)
+        assert_ca_bundle_permissions(home)
+
+        status_check = (
+            ". ~/.onecli/env.sh && "
+            'test "$ONECLI_CURSOR_SESSION_ID" = sess_cursor && '
+            f'test "$HTTPS_PROXY" = {services["proxy_url"]} && '
+            'test -n "$HTTPS_PROXY"'
+        )
+        run_checked(status_check, env=env, cwd=CURSOR, shell=True)
+
+        run_checked([node, str(CURSOR / "hooks" / "session-end.mjs")], env=env, cwd=CURSOR)
+        check(not (home / ".onecli" / "env.sh").exists(), "cursor session-end did not clean env.sh")
+
+
+def run_cursor_pre_tool(node: str, home: Path, command: str, extra_env: dict[str, str] | None = None) -> str:
+    env = os.environ.copy()
+    for key in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
+        env.pop(key, None)
+    env["HOME"] = str(home)
+    if extra_env:
+        env.update(extra_env)
+    payload = {
+        "hook_event_name": "preToolUse",
+        "tool_name": "Shell",
+        "tool_input": {"command": command},
+    }
+    result = run_checked(
+        [node, str(CURSOR / "hooks" / "pre-tool-use.mjs")],
+        env=env,
+        cwd=CURSOR,
+        input_text=json.dumps(payload),
+    )
+    return result.stdout
+
+
+def assert_cursor_pre_tool_use(node: str) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        home = Path(tmp)
+
+        missing = run_cursor_pre_tool(node, home, "curl -s https://api.github.com/user")
+        check(missing == "", "cursor preToolUse should skip when env.sh is missing")
+
+        env_file = home / ".onecli" / "env.sh"
+        env_file.parent.mkdir(parents=True)
+        env_file.write_text("# loader\n")
+
+        rewritten = run_cursor_pre_tool(node, home, "curl -s https://api.github.com/user")
+        parsed = json.loads(rewritten)
+        updated = parsed["updated_input"]["command"]
+        check(parsed.get("permission") == "allow", "cursor preToolUse must allow rewritten commands")
+        check(
+            updated.startswith('ONECLI_CURSOR_AUTOSOURCED=1; . "$HOME/.onecli/env.sh" && curl'),
+            "cursor curl command was not auto-sourced",
+        )
+
+        already = run_cursor_pre_tool(
+            node, home, '. "$HOME/.onecli/env.sh" && curl -s https://api.github.com/user'
+        )
+        check(already == "", "cursor preToolUse should skip already-sourced commands")
+
+        local = run_cursor_pre_tool(node, home, "git status --short")
+        check(local == "", "cursor preToolUse should skip local git commands")
+
+        git_network = run_cursor_pre_tool(node, home, "git pull")
+        check("updated_input" in git_network, "cursor preToolUse should rewrite network git commands")
+
+
 def assert_claude_session_flow(node: str) -> None:
     with tempfile.TemporaryDirectory() as tmp, fake_onecli_services() as services:
         home = Path(tmp) / "home"
@@ -712,6 +880,8 @@ def main() -> int:
     assert_codex_loader_failure_is_visible(node)
     assert_codex_plugin_root_hook_command(node, command)
     assert_pre_tool_use(node)
+    assert_cursor_session_flow(node)
+    assert_cursor_pre_tool_use(node)
     assert_claude_session_flow(node)
     print(
         json.dumps(
@@ -729,6 +899,8 @@ def main() -> int:
                     "codex_loader_failure_visibility",
                     "codex_plugin_root_hook_command",
                     "codex_pre_tool_use_rewrite",
+                    "cursor_session_flow",
+                    "cursor_pre_tool_use_rewrite",
                     "claude_session_flow_and_quoting",
                 ],
             },

@@ -33,4 +33,13 @@ export default defineConfig([
     "plugins/codex/hooks"
   ),
   bundle(["src/codex/onecli-codex-env.mts"], "plugins/codex/bin"),
+  bundle(
+    [
+      "src/cursor/session-start.mts",
+      "src/cursor/pre-tool-use.mts",
+      "src/cursor/session-end.mts",
+    ],
+    "plugins/cursor/hooks"
+  ),
+  bundle(["src/cursor/onecli-cursor-env.mts"], "plugins/cursor/bin"),
 ]);

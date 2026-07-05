@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Conservative outbound-command rewrite — shared logic with src/cursor/pre-tool-use.mts.
+// Conservative outbound-command rewrite — shared logic with src/codex/pre-tool-use.mts.
 // Rationale, allowlist tradeoffs, and deprecation path: docs/hook-activation.md
 import { existsSync } from "node:fs";
 import { basename } from "node:path";
@@ -36,7 +36,6 @@ const TERRAFORM_NETWORK_COMMANDS = new Set([
   "plan",
   "refresh",
 ]);
-// aws subcommands that never leave the machine.
 const AWS_LOCAL_COMMANDS = new Set(["configure", "help"]);
 
 function splitCommandPrefix(command: string): { name: string; arg: string } {
@@ -52,7 +51,7 @@ function splitCommandPrefix(command: string): { name: string; arg: string } {
 function isAlreadyHandled(command: string): boolean {
   return (
     command.includes(".onecli/env.sh") ||
-    command.includes("ONECLI_CODEX_AUTOSOURCED") ||
+    command.includes("ONECLI_CURSOR_AUTOSOURCED") ||
     command.includes("HTTPS_PROXY=") ||
     command.includes("https_proxy=")
   );
@@ -102,18 +101,15 @@ function shouldRewrite(command: string): boolean {
 }
 
 function rewrittenCommand(command: string): string {
-  return `ONECLI_CODEX_AUTOSOURCED=1; . "$HOME/.onecli/env.sh" && ${command}`;
+  return `ONECLI_CURSOR_AUTOSOURCED=1; . "$HOME/.onecli/env.sh" && ${command}`;
 }
 
 function writeRewrite(command: string): void {
   process.stdout.write(
     JSON.stringify({
-      hookSpecificOutput: {
-        hookEventName: "PreToolUse",
-        permissionDecision: "allow",
-        updatedInput: {
-          command: rewrittenCommand(command),
-        },
+      permission: "allow",
+      updated_input: {
+        command: rewrittenCommand(command),
       },
     })
   );
@@ -123,10 +119,7 @@ async function main(): Promise<void> {
   const input = await readHookInput();
   const toolInput = input.tool_input as { command?: unknown } | undefined;
   const command = toolInput?.command;
-  if (input.tool_name !== "Bash" || typeof command !== "string") return;
-  // Under `onecli run`, the wrapper already exported the gateway env to the
-  // whole process tree; sourcing the loader would only re-fetch the same
-  // exports from OneCLI Cloud on every command.
+  if (input.tool_name !== "Shell" || typeof command !== "string") return;
   if (isOnecliProxy(process.env.HTTPS_PROXY)) return;
   if (!existsSync(onecliPaths().envPath)) return;
   if (isAlreadyHandled(command)) return;
