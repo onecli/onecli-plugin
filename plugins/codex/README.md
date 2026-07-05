@@ -40,6 +40,8 @@ Codex hooks run as child processes, so they cannot mutate the Codex session envi
 . ~/.onecli/env.sh && curl -s "https://api.github.com/user"
 ```
 
+See [`docs/hook-activation.md`](../../docs/hook-activation.md) for why this allowlist exists, how it compares to Claude's `BASH_ENV` model, and future options.
+
 If the helper fails (no API key, OneCLI Cloud unreachable, proxy down), the command still runs without the gateway, and the reason is printed to stderr.
 
 Codex documents `SessionStart`, `PreToolUse`, `SubagentStart`/`SubagentStop`, and turn-scoped `Stop`, but no true `SessionEnd`. Cleanup is therefore not automatic: use the `onecli-cleanup` skill (or `hooks/session-end.mjs`) for explicit deactivation or uninstall. Wiring it to `Stop` would remove the gateway loader after every turn.

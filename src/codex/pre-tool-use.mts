@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// Conservative outbound-command rewrite — shared logic with src/cursor/pre-tool-use.mts.
+// Rationale, allowlist tradeoffs, and deprecation path: docs/hook-activation.md
 import { existsSync } from "node:fs";
 import { basename } from "node:path";
 import { isOnecliProxy, onecliPaths, readHookInput } from "../shared/runtime.mjs";

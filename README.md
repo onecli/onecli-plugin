@@ -22,7 +22,9 @@ On Claude Code, the `SessionStart` hook fetches the gateway config once, writes 
 
 On Codex, hooks run as child processes and cannot mutate the session environment, and there is no `SessionEnd` event. The `SessionStart` hook therefore writes `~/.onecli/env.sh` as a **credential-free loader**; a conservative `PreToolUse` hook auto-sources it for outbound Bash commands (such as `curl`, `gh`, `git push`, `npm install`), fetching fresh gateway exports per command via `bin/onecli-codex-env.mjs`. Cleanup is an explicit skill (`onecli-cleanup`), deliberately not wired to the turn-scoped `Stop` event.
 
-On Cursor, the `sessionStart` hook writes the same loader, fetches gateway config when an API key exists, and returns session-scoped `env` exports. A conservative `preToolUse` hook (Shell matcher) auto-sources the loader as a fallback. `sessionEnd` cleans up automatically.
+On Cursor, the `sessionStart` hook writes the same loader, fetches gateway config when an API key exists, and returns session-scoped `env` exports. A conservative `preToolUse` hook (Shell matcher) auto-sources the loader as a fallback when session env is not inherited. `sessionEnd` cleans up automatically.
+
+See [`docs/hook-activation.md`](docs/hook-activation.md) for why activation differs per platform, why `preToolUse` uses a command allowlist (shared with Codex), and the deprecation path toward session-only activation.
 
 ## Install on Claude Code
 

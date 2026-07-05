@@ -14,11 +14,13 @@ ln -sf "$(pwd)/plugins/cursor" ~/.cursor/plugins/local/onecli
 
 ## Runtime behavior
 
-Cursor hooks use a hybrid activation model:
+Cursor hooks use a hybrid activation model (see [`docs/hook-activation.md`](../../docs/hook-activation.md) for the full rationale and deprecation path):
 
 - **`sessionStart`** writes `~/.onecli/env.sh` as a non-secret loader, fetches gateway config when an API key exists, and returns session-scoped `env` exports plus `additional_context`.
-- **`preToolUse` (Shell)** conservatively rewrites outbound network commands to auto-source the loader when session env is not enough.
+- **`preToolUse` (Shell)** conservatively rewrites outbound network commands to auto-source the loader when session env is not inherited (same allowlist as Codex — not Cursor-specific).
 - **`sessionEnd`** removes the loader file automatically.
+
+`preToolUse` is a **compatibility fallback**. The intended end state is session-only activation once Cursor reliably applies `sessionStart` env to all agent shells and subagents.
 
 Manual sourcing remains available:
 
