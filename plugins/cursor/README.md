@@ -4,17 +4,13 @@ Connect Cursor Agent to external APIs through the OneCLI gateway without managin
 
 ## Installation
 
-### Local development
+See [INSTALL.md](./INSTALL.md) for the full local install flow (Customize → Plugins → + Add).
+
+Quick symlink fallback:
 
 ```bash
 ln -sf "$(pwd)/plugins/cursor" ~/.cursor/plugins/local/onecli
 ```
-
-Reload the Cursor window, then invoke the setup skill: `onecli-setup`.
-
-### From marketplace (once published)
-
-Install from the OneCLI marketplace entry in this repository.
 
 ## Runtime behavior
 

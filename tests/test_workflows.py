@@ -312,6 +312,7 @@ def assert_manifests_and_hooks() -> str:
     check(cursor_manifest.get("skills") == "./skills/", "cursor skills path drifted")
     check(cursor_manifest.get("rules") == "./rules/", "cursor rules path drifted")
     check(cursor_manifest.get("hooks") == "./hooks/hooks.json", "cursor hooks path drifted")
+    check((CURSOR / ".cursor-plugin" / "marketplace.json").exists(), "cursor marketplace manifest is missing for local + Add install")
     check((CURSOR / "rules" / "onecli-gateway.mdc").exists(), "cursor gateway rule is missing")
 
     cursor_hooks = load_json(CURSOR / "hooks" / "hooks.json")
