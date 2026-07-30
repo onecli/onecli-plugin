@@ -133,11 +133,7 @@ function printSetupRequired() {
 }
 function printActiveMessage() {
   process.stdout.write(
-    [
-      "OneCLI Gateway active. Call external APIs directly (plain `curl`/`gh`); requests are routed through the gateway and credentials are injected automatically. Never add Authorization headers.",
-      "On errors: `connect_url` \u2192 show it to the user and retry after they connect; `blocked_by_policy` \u2192 report the rule, do not circumvent; `rate_limited` \u2192 wait `retry_after_secs`. Details: onecli-gateway skill.",
-      ""
-    ].join("\n")
+    "OneCLI Gateway active \u2014 call external APIs directly with plain curl/gh (no auth headers); load the onecli-gateway skill for details.\n"
   );
 }
 async function main() {
