@@ -60,17 +60,16 @@ function printSetupRequired(): void {
 }
 
 function printActiveMessage(): void {
-  // Codex renders this context verbatim in the thread, so keep it terse.
-  // Detailed behavior (manual sourcing, error shapes) lives in the
-  // onecli-gateway skill. Do NOT suggest sourcing env.sh here: agents that
-  // prefix commands themselves bypass the PreToolUse auto-allow rewrite and
-  // trigger avoidable approval prompts.
+  // Codex renders hook output verbatim in the thread and has no silent
+  // model-only channel (unlike Claude's additionalContext), so this line is
+  // unavoidably user-visible. Keep it to ONE terse line: signal the gateway
+  // is active and point at the onecli-gateway skill, which carries the full
+  // rules (no auth headers, curl-not-MCP, error shapes) and is loaded on this
+  // cue. Do NOT restate those rules here or suggest sourcing env.sh (agents
+  // that prefix commands bypass the PreToolUse auto-allow and hit avoidable
+  // approval prompts).
   process.stdout.write(
-    [
-      "OneCLI Gateway active. Call external APIs directly (plain `curl`/`gh`); requests are routed through the gateway and credentials are injected automatically. Never add Authorization headers.",
-      "On errors: `connect_url` → show it to the user and retry after they connect; `blocked_by_policy` → report the rule, do not circumvent; `rate_limited` → wait `retry_after_secs`. Details: onecli-gateway skill.",
-      "",
-    ].join("\n")
+    "OneCLI Gateway active — call external APIs directly with plain curl/gh (no auth headers); load the onecli-gateway skill for details.\n"
   );
 }
 
