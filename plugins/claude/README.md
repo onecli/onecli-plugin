@@ -21,7 +21,7 @@ All HTTP clients (`curl`, `gh`, `gcloud`, `aws`, language libraries) honor the p
 
 After installation, run `/onecli-setup` in Claude Code:
 
-1. Open **https://app.onecli.sh/projects**
+1. Open **https://app.onecli.sh**
 2. Select your project (or create one)
 3. Copy your **API Key** from the Overview page (starts with `oc_`)
 4. Paste it when prompted

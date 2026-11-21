@@ -8,7 +8,8 @@ import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { createConnection } from "net";
 import { homedir } from "os";
 import { dirname, join } from "path";
-var DEFAULT_API_HOST = "https://app.onecli.sh";
+var DEFAULT_API_HOST = "https://api.onecli.sh";
+var LEGACY_API_HOSTS = ["https://app.onecli.sh"];
 var KEYCHAIN_SERVICE = "onecli-api-key";
 var SYSTEM_CA_PATHS = [
   "/etc/ssl/cert.pem",
@@ -95,22 +96,43 @@ function resolveApiKey(paths2 = onecliPaths()) {
 }
 function resolveApiHost(paths2 = onecliPaths()) {
   if (process.env.ONECLI_API_HOST) return process.env.ONECLI_API_HOST;
-  const config = safeReadJson(paths2.configPath);
-  if (config?.["api-host"]) return config["api-host"];
+  const host = safeReadJson(paths2.configPath)?.["api-host"]?.replace(/\/+$/, "");
+  if (host && !LEGACY_API_HOSTS.includes(host)) return host;
   return DEFAULT_API_HOST;
+}
+function resolveTarget(paths2 = onecliPaths()) {
+  const config = safeReadJson(paths2.configPath) ?? {};
+  return {
+    workspace: process.env.ONECLI_WORKSPACE || config.workspace || void 0,
+    agent: process.env.ONECLI_AGENT || config.agent || void 0
+  };
 }
 async function fetchContainerConfig(apiHost, apiKey, opts = {}) {
   try {
-    const response = await fetch(`${apiHost}/api/container-config`, {
-      headers: { Authorization: `Bearer ${apiKey}`, ...opts.headers },
-      signal: AbortSignal.timeout(1e4)
-    });
-    if (response.status === 401) return { ok: false, reason: "unauthorized" };
-    if (!response.ok) return { ok: false, reason: "http", status: response.status };
+    const url = new URL(`${apiHost}/v1/container-config`);
+    if (opts.agent) url.searchParams.set("agent", opts.agent);
+    const headers = { Authorization: `Bearer ${apiKey}`, ...opts.headers };
+    if (opts.workspace) headers["X-Workspace-Id"] = opts.workspace;
+    const response = await fetch(url, { headers, signal: AbortSignal.timeout(1e4) });
+    if (!response.ok) {
+      const message = await errorMessage(response);
+      if (response.status === 401 && !/X-Workspace-Id/i.test(message ?? "")) {
+        return { ok: false, reason: "unauthorized" };
+      }
+      return { ok: false, reason: "http", status: response.status, message };
+    }
     return { ok: true, config: await response.json() };
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";
     return { ok: false, reason: "network", message };
+  }
+}
+async function errorMessage(response) {
+  try {
+    const body = await response.json();
+    return typeof body.error === "string" ? body.error : body.error?.message;
+  } catch {
+    return void 0;
   }
 }
 function parseProxyUrl(proxyUrl) {
@@ -188,7 +210,7 @@ var ACTIVE_CONTEXT = [
   "- ALWAYS use curl for external API requests; NEVER use MCP tools for Gmail, Calendar, Drive, GitHub, etc.",
   "- Credentials are injected automatically; do not set Authorization headers manually",
   "- If a request returns 401/403 with a `connect_url` in the JSON response, show that URL to the user to connect the service, then retry",
-  "- If a request returns 401/403 WITHOUT a `connect_url`, guide the user to connect the service via /onecli-connect or at https://app.onecli.sh/projects",
+  "- If a request returns 401/403 WITHOUT a `connect_url`, guide the user to connect the service via /onecli-connect or at https://app.onecli.sh",
   "- If the gateway returns `blocked_by_policy` (403), show the rule name; do not retry or circumvent",
   "- If the gateway returns `rate_limited` (429), wait for `retry_after_secs` before retrying",
   "- Never say 'I don't have access' without making the request first",
@@ -254,7 +276,7 @@ async function main() {
     return;
   }
   const apiHost = resolveApiHost(paths);
-  const result = await fetchContainerConfig(apiHost, apiKey);
+  const result = await fetchContainerConfig(apiHost, apiKey, resolveTarget(paths));
   if (!result.ok) {
     if (result.reason === "unauthorized") {
       emit(
@@ -263,8 +285,8 @@ async function main() {
       );
     } else if (result.reason === "http") {
       emit(
-        `onecli: gateway returned ${result.status}. Run /onecli-status to diagnose.`,
-        `OneCLI: Gateway returned ${result.status}. Run /onecli-status to diagnose. External API requests may fail this session.`
+        `onecli: gateway returned ${result.status}${result.message ? `: ${result.message}` : ""}. Run /onecli-status to diagnose.`,
+        `OneCLI: Gateway returned ${result.status}${result.message ? ` (${result.message})` : ""}. Run /onecli-status to diagnose. External API requests may fail this session.`
       );
     } else {
       emit(

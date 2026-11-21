@@ -8,6 +8,7 @@ import {
   parseProxyUrl,
   probeProxy,
   resolveApiHost,
+  resolveTarget,
   resolveApiKey,
   userHome,
   writeCABundle,
@@ -28,7 +29,7 @@ const ACTIVE_CONTEXT = [
   "- ALWAYS use curl for external API requests; NEVER use MCP tools for Gmail, Calendar, Drive, GitHub, etc.",
   "- Credentials are injected automatically; do not set Authorization headers manually",
   "- If a request returns 401/403 with a `connect_url` in the JSON response, show that URL to the user to connect the service, then retry",
-  "- If a request returns 401/403 WITHOUT a `connect_url`, guide the user to connect the service via /onecli-connect or at https://app.onecli.sh/projects",
+  "- If a request returns 401/403 WITHOUT a `connect_url`, guide the user to connect the service via /onecli-connect or at https://app.onecli.sh",
   "- If the gateway returns `blocked_by_policy` (403), show the rule name; do not retry or circumvent",
   "- If the gateway returns `rate_limited` (429), wait for `retry_after_secs` before retrying",
   "- Never say 'I don't have access' without making the request first",
@@ -111,7 +112,7 @@ async function main(): Promise<void> {
   }
 
   const apiHost = resolveApiHost(paths);
-  const result = await fetchContainerConfig(apiHost, apiKey);
+  const result = await fetchContainerConfig(apiHost, apiKey, resolveTarget(paths));
   if (!result.ok) {
     if (result.reason === "unauthorized") {
       emit(
@@ -120,8 +121,8 @@ async function main(): Promise<void> {
       );
     } else if (result.reason === "http") {
       emit(
-        `onecli: gateway returned ${result.status}. Run /onecli-status to diagnose.`,
-        `OneCLI: Gateway returned ${result.status}. Run /onecli-status to diagnose. External API requests may fail this session.`
+        `onecli: gateway returned ${result.status}${result.message ? `: ${result.message}` : ""}. Run /onecli-status to diagnose.`,
+        `OneCLI: Gateway returned ${result.status}${result.message ? ` (${result.message})` : ""}. Run /onecli-status to diagnose. External API requests may fail this session.`
       );
     } else {
       emit(

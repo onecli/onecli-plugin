@@ -10,6 +10,7 @@ import {
   parseProxyUrl,
   probeProxy,
   resolveApiHost,
+  resolveTarget,
   resolveApiKey,
   shellQuote,
   writeCABundle,
@@ -44,13 +45,13 @@ async function main(): Promise<void> {
   const headers: Record<string, string> = {};
   if (sessionId) headers["X-OneCLI-Codex-Session-Id"] = sessionId;
 
-  const result = await fetchContainerConfig(apiHost, apiKey, { headers });
+  const result = await fetchContainerConfig(apiHost, apiKey, { headers, ...resolveTarget(paths) });
   if (!result.ok) {
     if (result.reason === "unauthorized") {
       fail("API key is invalid or expired. Use the onecli-setup skill to reconfigure.");
     }
     if (result.reason === "http") {
-      fail(`gateway config request returned HTTP ${result.status}. Use the onecli-status skill to diagnose.`);
+      fail(`gateway config request returned HTTP ${result.status}${result.message ? ` (${result.message})` : ""}. Use the onecli-status skill to diagnose.`);
     }
     fail(`could not reach OneCLI Cloud (${result.message}). This command runs without the gateway.`);
   }
