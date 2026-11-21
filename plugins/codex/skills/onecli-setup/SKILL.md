@@ -23,7 +23,7 @@ If a key exists, verify it:
 ```bash
 curl -s -o /dev/null -w "%{http_code}" \
   -H "Authorization: Bearer $(cat ~/.onecli/credentials/api-key)" \
-  https://app.onecli.sh/api/container-config
+  https://api.onecli.sh/v1/container-config
 ```
 
 If the response is `200`, tell the user OneCLI is already configured.
@@ -33,8 +33,8 @@ If the response is `200`, tell the user OneCLI is already configured.
 If no key exists, tell the user:
 
 ```text
-Open https://app.onecli.sh/projects, select or create a project, copy the API
-key from the Overview page, and paste it here.
+Open https://app.onecli.sh, copy an organization or personal API key, and
+paste it here.
 ```
 
 The key should start with `oc_`.
@@ -47,11 +47,11 @@ After the user provides the key, store it without printing it back:
 umask 077
 mkdir -p ~/.onecli/credentials
 printf '%s' "USER_PROVIDED_KEY" > ~/.onecli/credentials/api-key
-printf '%s\n' '{"api-host":"https://app.onecli.sh"}' > ~/.onecli/config.json
+printf '%s\n' '{"api-host":"https://api.onecli.sh"}' > ~/.onecli/config.json
 chmod 600 ~/.onecli/credentials/api-key ~/.onecli/config.json
 curl -s -o /dev/null -w "%{http_code}" \
   -H "Authorization: Bearer USER_PROVIDED_KEY" \
-  https://app.onecli.sh/api/container-config
+  https://api.onecli.sh/v1/container-config
 ```
 
 If the response is `200`, tell the user setup succeeded and they should start a
@@ -64,4 +64,17 @@ current thread, resolve the plugin root as the directory two levels above this
 node "<plugin-root>/hooks/session-start.mjs"
 ```
 
-If the response is `401`, ask the user to check the key in the OneCLI dashboard.
+If the response is `401` with `X-Workspace-Id ... is required`, or `404` with
+`AGENT_REQUIRED`, the key is an organization key or the workspace has no default
+agent. List the choices, ask the user if there is more than one, and save them:
+
+```bash
+K=$(cat ~/.onecli/credentials/api-key)
+curl -s -H "Authorization: Bearer $K" https://api.onecli.sh/v1/workspaces
+curl -s -H "Authorization: Bearer $K" -H "X-Workspace-Id: WORKSPACE_ID" https://api.onecli.sh/v1/agents
+printf '{"api-host":"https://api.onecli.sh","workspace":"%s","agent":"%s"}\n' \
+  "WORKSPACE_ID" "AGENT_IDENTIFIER" > ~/.onecli/config.json
+```
+
+Omit `workspace` for a personal key. Any other `401` means the key is invalid;
+ask the user to check it in the OneCLI dashboard.

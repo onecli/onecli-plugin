@@ -6,7 +6,8 @@ import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { createConnection } from "net";
 import { homedir } from "os";
 import { dirname, join } from "path";
-var DEFAULT_API_HOST = "https://app.onecli.sh";
+var DEFAULT_API_HOST = "https://api.onecli.sh";
+var LEGACY_API_HOSTS = ["https://app.onecli.sh"];
 var KEYCHAIN_SERVICE = "onecli-api-key";
 var SYSTEM_CA_PATHS = [
   "/etc/ssl/cert.pem",
@@ -89,22 +90,43 @@ function resolveApiKey(paths = onecliPaths()) {
 }
 function resolveApiHost(paths = onecliPaths()) {
   if (process.env.ONECLI_API_HOST) return process.env.ONECLI_API_HOST;
-  const config = safeReadJson(paths.configPath);
-  if (config?.["api-host"]) return config["api-host"];
+  const host = safeReadJson(paths.configPath)?.["api-host"]?.replace(/\/+$/, "");
+  if (host && !LEGACY_API_HOSTS.includes(host)) return host;
   return DEFAULT_API_HOST;
+}
+function resolveTarget(paths = onecliPaths()) {
+  const config = safeReadJson(paths.configPath) ?? {};
+  return {
+    workspace: process.env.ONECLI_WORKSPACE || config.workspace || void 0,
+    agent: process.env.ONECLI_AGENT || config.agent || void 0
+  };
 }
 async function fetchContainerConfig(apiHost, apiKey, opts = {}) {
   try {
-    const response = await fetch(`${apiHost}/api/container-config`, {
-      headers: { Authorization: `Bearer ${apiKey}`, ...opts.headers },
-      signal: AbortSignal.timeout(1e4)
-    });
-    if (response.status === 401) return { ok: false, reason: "unauthorized" };
-    if (!response.ok) return { ok: false, reason: "http", status: response.status };
+    const url = new URL(`${apiHost}/v1/container-config`);
+    if (opts.agent) url.searchParams.set("agent", opts.agent);
+    const headers = { Authorization: `Bearer ${apiKey}`, ...opts.headers };
+    if (opts.workspace) headers["X-Workspace-Id"] = opts.workspace;
+    const response = await fetch(url, { headers, signal: AbortSignal.timeout(1e4) });
+    if (!response.ok) {
+      const message = await errorMessage(response);
+      if (response.status === 401 && !/X-Workspace-Id/i.test(message ?? "")) {
+        return { ok: false, reason: "unauthorized" };
+      }
+      return { ok: false, reason: "http", status: response.status, message };
+    }
     return { ok: true, config: await response.json() };
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";
     return { ok: false, reason: "network", message };
+  }
+}
+async function errorMessage(response) {
+  try {
+    const body = await response.json();
+    return typeof body.error === "string" ? body.error : body.error?.message;
+  } catch {
+    return void 0;
   }
 }
 function parseProxyUrl(proxyUrl) {
@@ -194,13 +216,13 @@ async function main() {
   const apiHost = resolveApiHost(paths);
   const headers = {};
   if (sessionId) headers["X-OneCLI-Codex-Session-Id"] = sessionId;
-  const result = await fetchContainerConfig(apiHost, apiKey, { headers });
+  const result = await fetchContainerConfig(apiHost, apiKey, { headers, ...resolveTarget(paths) });
   if (!result.ok) {
     if (result.reason === "unauthorized") {
       fail("API key is invalid or expired. Use the onecli-setup skill to reconfigure.");
     }
     if (result.reason === "http") {
-      fail(`gateway config request returned HTTP ${result.status}. Use the onecli-status skill to diagnose.`);
+      fail(`gateway config request returned HTTP ${result.status}${result.message ? ` (${result.message})` : ""}. Use the onecli-status skill to diagnose.`);
     }
     fail(`could not reach OneCLI Cloud (${result.message}). This command runs without the gateway.`);
   }

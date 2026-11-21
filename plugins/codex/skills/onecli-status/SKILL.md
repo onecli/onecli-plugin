@@ -38,9 +38,12 @@ API_KEY="$(
 )"
 
 if [ -n "$API_KEY" ]; then
+  WS=$(python3 -c 'import json,os;print(json.load(open(os.path.expanduser("~/.onecli/config.json"))).get("workspace",""))' 2>/dev/null)
+  AGENT=$(python3 -c 'import json,os;print(json.load(open(os.path.expanduser("~/.onecli/config.json"))).get("agent",""))' 2>/dev/null)
   curl -s -o /dev/null -w "%{http_code}" \
     -H "Authorization: Bearer $API_KEY" \
-    https://app.onecli.sh/api/container-config
+    -H "X-Workspace-Id:${WS:+ $WS}" \
+    "https://api.onecli.sh/v1/container-config${AGENT:+?agent=$AGENT}"
 else
   echo "NO_API_KEY"
 fi
@@ -57,7 +60,7 @@ API_KEY="$(
 )"
 
 if [ -n "$API_KEY" ]; then
-  curl -s -H "Authorization: Bearer $API_KEY" https://app.onecli.sh/api/apps |
+  WS=$(python3 -c 'import json,os;print(json.load(open(os.path.expanduser("~/.onecli/config.json"))).get("workspace",""))' 2>/dev/null); curl -s -H "Authorization: Bearer $API_KEY" -H "X-Workspace-Id:${WS:+ $WS}" https://api.onecli.sh/v1/apps |
     python3 -c '
 import json, sys
 apps = json.load(sys.stdin)
@@ -84,4 +87,4 @@ fi
 ```
 
 If services are not connected, direct the user to
-`https://app.onecli.sh/projects`.
+`https://app.onecli.sh`.

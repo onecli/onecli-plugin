@@ -16,6 +16,7 @@ import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 
 REPO = Path(__file__).resolve().parents[1]
@@ -48,6 +49,7 @@ class ConfigServer(ThreadingHTTPServer):
         self.extra_env = {}
         self.ca_certificate = "-----BEGIN CERTIFICATE-----\nMIIBoneclitest\n-----END CERTIFICATE-----"
         self.requests = []
+        self.require_workspace = None
 
 
 class ConfigHandler(BaseHTTPRequestHandler):
@@ -60,14 +62,26 @@ class ConfigHandler(BaseHTTPRequestHandler):
                 "path": self.path,
                 "authorization": self.headers.get("Authorization"),
                 "session_id": self.headers.get("X-OneCLI-Codex-Session-Id"),
+                "workspace": self.headers.get("X-Workspace-Id"),
             }
         )
-        if self.path != "/api/container-config":
+        url = urlparse(self.path)
+        if url.path != "/v1/container-config":
             self.send_error(404)
             return
         if self.headers.get("Authorization") != f"Bearer {self.server.expected_key}":
             self.send_error(401)
             return
+        # Mimics an org key: 401 with a JSON message until the workspace header arrives.
+        if self.server.require_workspace and self.headers.get("X-Workspace-Id") != self.server.require_workspace:
+            body = json.dumps({"error": {"message": "X-Workspace-Id (formerly X-Project-Id) header is required", "type": "authentication_error"}}).encode()
+            self.send_response(401)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        self.server.requests[-1]["agent"] = parse_qs(url.query).get("agent", [None])[0]
 
         env = {
             "HTTPS_PROXY": self.server.proxy_url,
@@ -328,7 +342,7 @@ def assert_workflow_docs() -> None:
         [
             "test -s ~/.onecli/credentials/api-key",
             "Authorization: Bearer $(cat ~/.onecli/credentials/api-key)",
-            "Open https://app.onecli.sh/projects",
+            "Open https://app.onecli.sh",
             "After the user provides the key, store it without printing it back",
             "umask 077",
             "chmod 600 ~/.onecli/credentials/api-key ~/.onecli/config.json",
@@ -344,11 +358,11 @@ def assert_workflow_docs() -> None:
             ". ~/.onecli/env.sh",
             "GATEWAY: active",
             "NO_API_KEY",
-            "/api/container-config",
-            "/api/apps",
+            "/v1/container-config",
+            "/v1/apps",
             "Connected (",
             "Available (",
-            "https://app.onecli.sh/projects",
+            "https://app.onecli.sh",
         ],
     )
     assert_contains(
@@ -702,6 +716,27 @@ def assert_claude_session_flow(node: str) -> None:
         )
 
 
+def assert_claude_org_key_workspace(node: str) -> None:
+    with tempfile.TemporaryDirectory() as tmp, fake_onecli_services() as services:
+        home = Path(tmp) / "home"
+        home.mkdir()
+        write_api_key(home)
+        env = clean_env(home, services["api_url"])
+        services["api"].require_workspace = "ws_test"
+        hook = [node, str(CLAUDE / "hooks" / "session-start.mjs")]
+
+        payload = json.loads(run_checked(hook, env=env, cwd=CLAUDE).stdout)
+        message = payload.get("systemMessage", "")
+        check("X-Workspace-Id" in message, f"missing workspace must be reported, not called an invalid key: {message!r}")
+
+        (home / ".onecli" / "config.json").write_text(json.dumps({"workspace": "ws_test", "agent": "my-agent"}))
+        payload = json.loads(run_checked(hook, env=env, cwd=CLAUDE).stdout)
+        check("gateway connected" in payload.get("systemMessage", ""), f"workspace config did not connect: {payload!r}")
+        last = services["api"].requests[-1]
+        check(last["workspace"] == "ws_test" and last["agent"] == "my-agent", f"workspace/agent not sent: {last!r}")
+        run_checked([node, str(CLAUDE / "hooks" / "session-end.mjs")], env=env, cwd=CLAUDE)
+
+
 def main() -> int:
     node = node_bin()
     command = assert_manifests_and_hooks()
@@ -713,6 +748,7 @@ def main() -> int:
     assert_codex_plugin_root_hook_command(node, command)
     assert_pre_tool_use(node)
     assert_claude_session_flow(node)
+    assert_claude_org_key_workspace(node)
     print(
         json.dumps(
             {
@@ -730,6 +766,7 @@ def main() -> int:
                     "codex_plugin_root_hook_command",
                     "codex_pre_tool_use_rewrite",
                     "claude_session_flow_and_quoting",
+                    "claude_org_key_workspace",
                 ],
             },
             indent=2,

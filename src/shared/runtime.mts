@@ -4,7 +4,9 @@ import { createConnection } from "node:net";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
-export const DEFAULT_API_HOST = "https://app.onecli.sh";
+export const DEFAULT_API_HOST = "https://api.onecli.sh";
+// The Cloud API moved off app.onecli.sh; old config files still name it.
+const LEGACY_API_HOSTS = ["https://app.onecli.sh"];
 export const KEYCHAIN_SERVICE = "onecli-api-key";
 
 export const SYSTEM_CA_PATHS = [
@@ -118,9 +120,19 @@ export function resolveApiKey(paths: OnecliPaths = onecliPaths()): string | null
 
 export function resolveApiHost(paths: OnecliPaths = onecliPaths()): string {
   if (process.env.ONECLI_API_HOST) return process.env.ONECLI_API_HOST;
-  const config = safeReadJson<{ "api-host"?: string }>(paths.configPath);
-  if (config?.["api-host"]) return config["api-host"];
+  const host = safeReadJson<{ "api-host"?: string }>(paths.configPath)?.["api-host"]?.replace(/\/+$/, "");
+  if (host && !LEGACY_API_HOSTS.includes(host)) return host;
   return DEFAULT_API_HOST;
+}
+
+// Organization keys (oc_org_...) need a workspace; any key may name an agent.
+// Same keys as `onecli config set`, plus env overrides.
+export function resolveTarget(paths: OnecliPaths = onecliPaths()): { workspace?: string; agent?: string } {
+  const config = safeReadJson<{ workspace?: string; agent?: string }>(paths.configPath) ?? {};
+  return {
+    workspace: process.env.ONECLI_WORKSPACE || config.workspace || undefined,
+    agent: process.env.ONECLI_AGENT || config.agent || undefined,
+  };
 }
 
 export interface ContainerConfig {
@@ -132,26 +144,42 @@ export interface ContainerConfig {
 export type ConfigResult =
   | { ok: true; config: ContainerConfig }
   | { ok: false; reason: "unauthorized" }
-  | { ok: false; reason: "http"; status: number }
+  | { ok: false; reason: "http"; status: number; message?: string }
   | { ok: false; reason: "network"; message: string };
 
 export async function fetchContainerConfig(
   apiHost: string,
   apiKey: string,
-  opts: { headers?: Record<string, string> } = {}
+  opts: { headers?: Record<string, string>; workspace?: string; agent?: string } = {}
 ): Promise<ConfigResult> {
   try {
-    const response = await fetch(`${apiHost}/api/container-config`, {
-      headers: { Authorization: `Bearer ${apiKey}`, ...opts.headers },
-      signal: AbortSignal.timeout(10000),
-    });
+    const url = new URL(`${apiHost}/v1/container-config`);
+    if (opts.agent) url.searchParams.set("agent", opts.agent);
+    const headers: Record<string, string> = { Authorization: `Bearer ${apiKey}`, ...opts.headers };
+    if (opts.workspace) headers["X-Workspace-Id"] = opts.workspace;
+    const response = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
 
-    if (response.status === 401) return { ok: false, reason: "unauthorized" };
-    if (!response.ok) return { ok: false, reason: "http", status: response.status };
+    if (!response.ok) {
+      const message = await errorMessage(response);
+      // An org key without a workspace also answers 401; that is a config gap, not a bad key.
+      if (response.status === 401 && !/X-Workspace-Id/i.test(message ?? "")) {
+        return { ok: false, reason: "unauthorized" };
+      }
+      return { ok: false, reason: "http", status: response.status, message };
+    }
     return { ok: true, config: (await response.json()) as ContainerConfig };
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";
     return { ok: false, reason: "network", message };
+  }
+}
+
+async function errorMessage(response: Response): Promise<string | undefined> {
+  try {
+    const body = (await response.json()) as { error?: string | { message?: string } };
+    return typeof body.error === "string" ? body.error : body.error?.message;
+  } catch {
+    return undefined;
   }
 }
 

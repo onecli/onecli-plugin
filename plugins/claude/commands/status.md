@@ -21,7 +21,7 @@ Resolve the API key and fetch services:
 ```bash
 API_KEY=$(cat ~/.onecli/credentials/api-key 2>/dev/null || cat ~/.config/onecli-plugin/auth.json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('apiKey',''))" 2>/dev/null)
 if [ -n "$API_KEY" ]; then
-  curl -s -H "Authorization: Bearer $API_KEY" https://app.onecli.sh/api/apps | python3 -c "
+  WS=$(python3 -c 'import json,os;print(json.load(open(os.path.expanduser("~/.onecli/config.json"))).get("workspace",""))' 2>/dev/null); curl -s -H "Authorization: Bearer $API_KEY" -H "X-Workspace-Id:${WS:+ $WS}" https://api.onecli.sh/v1/apps | python3 -c "
 import sys, json
 apps = json.load(sys.stdin)
 connected = [a for a in apps if a.get('connection', {}).get('status') == 'connected']
@@ -43,4 +43,4 @@ fi
 
 ### 3. Present Results
 
-Show a clean summary to the user. If services aren't connected, mention they can connect them from the OneCLI dashboard at https://app.onecli.sh/projects.
+Show a clean summary to the user. If services aren't connected, mention they can connect them from the OneCLI dashboard at https://app.onecli.sh.
